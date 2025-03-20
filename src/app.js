@@ -4,6 +4,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const dataManager = new DataManager();
     const scheduler = new Scheduler(dataManager);
     
+    // Global state for teacher mode
+    let teacherModeActive = false;
+    
     // Load class data from CSV
     await dataManager.loadClassesFromCSV();
     
@@ -23,6 +26,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('export-btn').addEventListener('click', exportSchedule);
     document.getElementById('help-btn').addEventListener('click', showHelp);
     document.getElementById('reset-btn').addEventListener('click', resetSchedule);
+    
+    // Teacher mode toggle
+    const teacherModeToggle = document.getElementById('teacher-mode');
+    teacherModeToggle.addEventListener('change', toggleTeacherMode);
     
     // Week navigation
     document.getElementById('prev-week-btn').addEventListener('click', () => navigateWeek(-1));
@@ -97,6 +104,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                 cell.dataset.date = dateStr;
                 cell.dataset.period = period;
                 
+                // Add teacher mode click handler
+                cell.addEventListener('click', handleCellClick);
+                
+                // Add drag handlers for class scheduling
                 cell.addEventListener('dragover', handleDragOver);
                 cell.addEventListener('dragleave', handleDragLeave);
                 cell.addEventListener('drop', handleDrop);
@@ -152,6 +163,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
             });
         });
+        
+        // Mark teacher unavailable periods
+        markTeacherUnavailabilityPeriods();
+        
+        // Apply teacher mode active class if in teacher mode
+        if (teacherModeActive) {
+            document.querySelectorAll('.grid-cell:not(.scheduled)').forEach(cell => {
+                cell.classList.add('teacher-mode-active');
+            });
+        }
     }
     
     function renderUnscheduledClasses() {
@@ -282,7 +303,23 @@ document.addEventListener('DOMContentLoaded', async () => {
             dataManager.unscheduleClass(originalDate, originalPeriod);
         }
         
-        // Validate placement
+        // Check specifically for teacher unavailability
+        if (dataManager.isTeacherUnavailable(dateStr, period)) {
+            const confirmOverride = confirm('You are unavailable during this period. Are you sure you want to schedule a class here?');
+            if (!confirmOverride) {
+                // If user cancels, put the class back if it was scheduled
+                if (source === 'scheduled') {
+                    const originalDate = e.dataTransfer.getData('originalDate');
+                    const originalPeriod = e.dataTransfer.getData('originalPeriod');
+                    dataManager.scheduleClass(className, originalDate, originalPeriod);
+                    renderScheduleGrid();
+                }
+                return;
+            }
+            // If user confirms, continue with placement
+        }
+        
+        // Validate placement for other constraints
         const validation = scheduler.isValidPlacement(className, dateStr, period);
         
         if (validation.valid) {
@@ -544,5 +581,77 @@ document.addEventListener('DOMContentLoaded', async () => {
         element.className = className;
         element.textContent = textContent;
         return element;
+    }
+    
+    // Teacher mode functions
+    function toggleTeacherMode(e) {
+        teacherModeActive = e.target.checked;
+        
+        if (teacherModeActive) {
+            // Enable teacher mode UI
+            showMessage('info', 'Teacher Mode active. Click on time slots to mark when you are unavailable.', 6000);
+            document.querySelectorAll('.grid-cell:not(.scheduled)').forEach(cell => {
+                cell.classList.add('teacher-mode-active');
+            });
+        } else {
+            // Disable teacher mode UI
+            showMessage('info', 'Teacher Mode disabled. Back to regular scheduling mode.', 4000);
+            document.querySelectorAll('.grid-cell').forEach(cell => {
+                cell.classList.remove('teacher-mode-active');
+            });
+        }
+    }
+    
+    function handleCellClick(e) {
+        const cell = e.target.closest('.grid-cell');
+        if (!cell) return;
+        
+        // Only process clicks in teacher mode and on unscheduled cells
+        if (teacherModeActive && !cell.classList.contains('scheduled')) {
+            const dateStr = cell.dataset.date;
+            const period = cell.dataset.period;
+            
+            // Toggle the teacher unavailability for this period
+            const isNowUnavailable = dataManager.toggleTeacherUnavailability(dateStr, period);
+            
+            // Update the visual indicator
+            if (isNowUnavailable) {
+                cell.classList.add('teacher-unavailable');
+                cell.title = 'You are unavailable during this period';
+            } else {
+                cell.classList.remove('teacher-unavailable');
+                cell.removeAttribute('title');
+            }
+            
+            // Update any class highlights if a class is selected
+            const selectedClass = document.querySelector('.class-item.suggested');
+            if (selectedClass) {
+                highlightAvailableSlots(selectedClass.dataset.className);
+            }
+        }
+    }
+    
+    function markTeacherUnavailabilityPeriods() {
+        // Get dates for the current week
+        const weekDates = dataManager.getCurrentWeekDates();
+        
+        weekDates.forEach(date => {
+            const dateStr = dataManager.getFormattedDate(date);
+            
+            // Check each period for teacher unavailability
+            for (let period = 1; period <= 8; period++) {
+                const cell = document.querySelector(`.grid-cell[data-date="${dateStr}"][data-period="${period}"]`);
+                if (!cell) continue;
+                
+                // First remove any existing unavailability marker
+                cell.classList.remove('teacher-unavailable');
+                
+                // Then check and add marker if unavailable
+                if (dataManager.isTeacherUnavailable(dateStr, period)) {
+                    cell.classList.add('teacher-unavailable');
+                    cell.title = 'You are unavailable during this period';
+                }
+            }
+        });
     }
 });

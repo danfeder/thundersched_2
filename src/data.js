@@ -13,6 +13,9 @@ class DataManager {
         this.scheduleWeeks = {}; // Schedule data organized by weeks
         this.currentWeekOffset = 0; // Current week offset from start date
         
+        // Teacher unavailability data - organized by week offset, date, and period
+        this.teacherUnavailability = {};
+        
         // Initialize empty schedule for first week
         this.initializeEmptyWeek(0);
     }
@@ -117,6 +120,16 @@ class DataManager {
         });
         
         this.scheduleWeeks[weekOffset] = weekSchedule;
+        
+        // Initialize empty teacher unavailability for this week if it doesn't exist
+        if (!this.teacherUnavailability[weekOffset]) {
+            this.teacherUnavailability[weekOffset] = {};
+            weekDates.forEach(date => {
+                const dateStr = this.getFormattedDate(date);
+                this.teacherUnavailability[weekOffset][dateStr] = {};
+            });
+        }
+        
         return weekSchedule;
     }
     
@@ -221,6 +234,7 @@ class DataManager {
     resetAllSchedules() {
         // Reset all weeks
         this.scheduleWeeks = {};
+        this.teacherUnavailability = {};
         this.initializeEmptyWeek(0);
         this.currentWeekOffset = 0;
     }
@@ -268,7 +282,67 @@ class DataManager {
             return true;
         }
         
+        // Check if teacher is unavailable during this period
+        if (this.isTeacherUnavailable(dateStr, period)) {
+            return true;
+        }
+        
         // Check conflicts based on day of week
         return classInfo.conflicts[day].includes(Number(period));
+    }
+    
+    // Teacher unavailability methods
+    isTeacherUnavailable(dateStr, period) {
+        // Find the week offset for this date
+        const date = new Date(dateStr);
+        const monday = this.getMondayOfWeek(date);
+        const startMonday = this.getMondayOfWeek(this.scheduleStartDate);
+        
+        // Calculate the difference in days and convert to weeks
+        const diffTime = monday.getTime() - startMonday.getTime();
+        const diffDays = diffTime / (1000 * 60 * 60 * 24);
+        const weekOffset = Math.round(diffDays / 7); // Use Math.round to handle precision issues
+        
+        // Check if there's unavailability data for this date and period
+        return this.teacherUnavailability[weekOffset] && 
+               this.teacherUnavailability[weekOffset][dateStr] && 
+               this.teacherUnavailability[weekOffset][dateStr][period] === true;
+    }
+    
+    toggleTeacherUnavailability(dateStr, period) {
+        // Find the correct week offset for this date to ensure persistence
+        const date = new Date(dateStr);
+        const monday = this.getMondayOfWeek(date);
+        const startMonday = this.getMondayOfWeek(this.scheduleStartDate);
+        
+        // Calculate the difference in days and convert to weeks
+        const diffTime = monday.getTime() - startMonday.getTime();
+        const diffDays = diffTime / (1000 * 60 * 60 * 24);
+        const weekOffset = Math.round(diffDays / 7); // Use Math.round to handle precision issues
+        
+        // Make sure we have initialized data for this week
+        if (!this.teacherUnavailability[weekOffset]) {
+            this.teacherUnavailability[weekOffset] = {};
+        }
+        
+        // Get the week data for the correct week offset
+        const weekData = this.teacherUnavailability[weekOffset];
+        
+        // Initialize the date entry if it doesn't exist
+        if (!weekData[dateStr]) {
+            weekData[dateStr] = {};
+        }
+        
+        // Toggle the unavailability for this period
+        const isCurrentlyUnavailable = weekData[dateStr][period] === true;
+        weekData[dateStr][period] = !isCurrentlyUnavailable;
+        
+        // Update the data structure
+        this.teacherUnavailability[weekOffset] = weekData;
+        
+        console.log(`Teacher availability for ${dateStr}, period ${period} set to: ${!isCurrentlyUnavailable}`);
+        console.log(`Week offset for this date: ${weekOffset}`);
+        
+        return !isCurrentlyUnavailable; // Return the new state
     }
 }

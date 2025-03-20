@@ -14,8 +14,13 @@ class Scheduler {
         }
 
         // Check if the class has a conflict during this period
+        // Note: We now handle teacher unavailability separately in the drop handler
+        // to allow for confirmation, so we specifically exclude that check here
         if (this.dataManager.hasConflict(className, dateStr, period)) {
-            return { valid: false, reason: 'This class has a conflict during this period.' };
+            // Only check for class conflicts, not teacher unavailability
+            if (!this.dataManager.isTeacherUnavailable(dateStr, period)) {
+                return { valid: false, reason: 'This class has a conflict during this period.' };
+            }
         }
 
         // Check if placing here would create 3+ consecutive classes

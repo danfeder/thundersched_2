@@ -20,6 +20,11 @@
                 <div class="controls">
                     <button id="suggest-next-btn" class="btn">Suggest Next Class</button>
                     <button id="export-btn" class="btn btn-secondary">Export Schedule</button>
+                    <div class="teacher-mode-toggle">
+                        <input type="checkbox" id="teacher-mode" class="toggle-checkbox">
+                        <label for="teacher-mode" class="toggle-label">Teacher Mode</label>
+                        <span class="toggle-help" title="Toggle Teacher Mode to mark periods when you're unavailable. These will be considered when scheduling classes.">?</span>
+                    </div>
                     <div class="btn-group">
                         <button id="reset-btn" class="btn btn-danger">Reset Schedule</button>
                         <button id="help-btn" class="btn btn-text">Show Help</button>
@@ -81,6 +86,16 @@
                 <li>No more than 2 consecutive classes (to avoid 3+ in a row)</li>
                 <li>Weekly teaching load: 12-16 classes total</li>
                 <li>Each class can only be scheduled once across all weeks</li>
+                <li>Classes cannot be scheduled during teacher unavailability periods</li>
+            </ul>
+            
+            <h3>Teacher Mode</h3>
+            <ul>
+                <li><strong>Enabling Teacher Mode:</strong> Toggle the "Teacher Mode" switch to mark periods when you're unavailable</li>
+                <li><strong>Marking Unavailability:</strong> With Teacher Mode active, click on any unscheduled time slot to mark it as unavailable</li>
+                <li><strong>Removing Unavailability:</strong> Click again on a marked slot to make it available again</li>
+                <li><strong>Visual Indicators:</strong> Unavailable slots are shown with a yellow background and X mark</li>
+                <li><strong>Impact on Scheduling:</strong> Classes cannot be scheduled in periods marked as teacher unavailable</li>
             </ul>
         </div>
     </div>
