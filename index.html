@@ -20,6 +20,7 @@
                 <div class="controls">
                     <button id="suggest-next-btn" class="btn">Suggest Next Class</button>
                     <button id="export-btn" class="btn btn-secondary">Export Schedule</button>
+                    <button id="manage-classes-btn" class="btn btn-secondary" onclick="window.openClassManager()">Manage Classes</button>
                     <div class="teacher-mode-toggle">
                         <input type="checkbox" id="teacher-mode" class="toggle-checkbox">
                         <label for="teacher-mode" class="toggle-label">Teacher Mode</label>
@@ -97,11 +98,77 @@
                 <li><strong>Visual Indicators:</strong> Unavailable slots are shown with a yellow background and X mark</li>
                 <li><strong>Impact on Scheduling:</strong> Classes cannot be scheduled in periods marked as teacher unavailable</li>
             </ul>
+            
+            <h3>Class Manager</h3>
+            <ul>
+                <li><strong>Opening Class Manager:</strong> Click the "Manage Classes" button to open the class manager</li>
+                <li><strong>Adding Classes:</strong> Click "Add New Class" to create a new class</li>
+                <li><strong>Editing Classes:</strong> Select a class from the list to edit its details</li>
+                <li><strong>Setting Conflicts:</strong> Click on periods in the conflict grid to mark times when a class CANNOT be scheduled</li>
+                <li><strong>Deleting Classes:</strong> Select a class and click "Delete Class" (only works for unscheduled classes)</li>
+                <li><strong>Auto-Naming:</strong> If you leave the class name blank, it will be auto-generated based on grade level</li>
+            </ul>
+        </div>
+    </div>
+    
+    <!-- Class Manager Modal -->
+    <div id="class-manager-modal" class="modal">
+        <div class="modal-content class-manager-content">
+            <span class="close" onclick="window.closeClassManager()">&times;</span>
+            <h2>Class Manager</h2>
+            
+            <div class="class-manager-container">
+                <div class="class-selector">
+                    <h3>Classes</h3>
+                    <div class="class-list-container">
+                        <div id="class-list" class="class-list scrollable"></div>
+                    </div>
+                    <button id="add-class-btn" class="btn">Add New Class</button>
+                </div>
+                
+                <div class="class-editor">
+                    <h3>Edit Class</h3>
+                    <form id="class-edit-form">
+                        <div class="form-group">
+                            <label for="class-name">Class Name:</label>
+                            <input type="text" id="class-name" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="class-grade">Grade Level:</label>
+                            <select id="class-grade">
+                                <option value="PK">Pre-K</option>
+                                <option value="K">Kindergarten</option>
+                                <option value="1">1st Grade</option>
+                                <option value="2">2nd Grade</option>
+                                <option value="3">3rd Grade</option>
+                                <option value="4">4th Grade</option>
+                                <option value="5">5th Grade</option>
+                                <option value="mixed">Mixed Grades</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Conflict Periods:</label>
+                            <div class="conflict-grid-container">
+                                <div id="conflict-grid" class="conflict-grid"></div>
+                            </div>
+                            <div class="conflict-help">Click on periods when this class CANNOT be scheduled</div>
+                        </div>
+                        
+                        <div class="form-actions">
+                            <button type="submit" id="save-class-btn" class="btn">Save Class</button>
+                            <button type="button" id="delete-class-btn" class="btn btn-danger">Delete Class</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
         </div>
     </div>
 
     <script src="src/data.js"></script>
     <script src="src/scheduler.js"></script>
     <script src="src/app.js"></script>
+    <script src="src/class-manager.js"></script>
 </body>
 </html>

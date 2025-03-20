@@ -373,6 +373,157 @@ header {
     line-height: 1.6;
 }
 
+/* Class Manager Modal */
+.class-manager-content {
+    max-width: 900px;
+    max-height: 85vh;
+    overflow-y: auto;
+}
+
+.class-manager-container {
+    display: flex;
+    gap: 1.5rem;
+}
+
+.class-selector {
+    width: 200px;
+    border-right: 1px solid #eee;
+    padding-right: 1rem;
+}
+
+.class-editor {
+    flex: 1;
+    padding-left: 1.5rem;
+}
+
+.class-list-container {
+    height: 300px;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-bottom: 1rem;
+}
+
+.scrollable {
+    overflow-y: auto;
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group.disabled {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+#class-edit-form.disabled {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: bold;
+}
+
+.form-group input,
+.form-group select {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 1rem;
+}
+
+.form-actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 2rem;
+}
+
+/* Conflict Grid */
+.conflict-grid-container {
+    margin-top: 1rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 1rem;
+    background-color: #f9f9f9;
+    width: 100%;
+    overflow-x: auto;
+}
+
+.conflict-grid {
+    display: grid;
+    grid-template-columns: auto repeat(5, 1fr);
+    grid-template-rows: auto repeat(8, 1fr);
+    gap: 2px;
+}
+
+.conflict-grid-header {
+    background-color: #35424a;
+    color: white;
+    padding: 0.5rem;
+    text-align: center;
+    font-weight: bold;
+    font-size: 0.85rem;
+}
+
+.conflict-grid-cell {
+    min-height: 40px;
+    min-width: 60px;
+    background-color: #fff;
+    border: 1px solid #ddd;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.conflict-grid-cell:hover {
+    background-color: #f0f0f0;
+}
+
+.conflict-grid-cell.conflict {
+    background-color: #ef9a9a;
+    border: 2px solid #c62828;
+}
+
+.conflict-help {
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+    color: #666;
+    font-style: italic;
+}
+
+.class-item.selected {
+    background-color: #bbdefb;
+    border-left: 4px solid #1976d2;
+}
+
+.class-manager-placeholder {
+    padding: 2rem;
+    text-align: center;
+    color: #757575;
+    font-style: italic;
+}
+
+/* Success indicators */
+.success-flash {
+    background-color: #4caf50 !important;
+    color: white !important;
+    border-color: #2e7d32 !important;
+    transition: all 0.3s ease !important;
+}
+
+@keyframes success-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7); }
+    70% { box-shadow: 0 0 0 10px rgba(76, 175, 80, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); }
+}
+
 .close {
     color: #aaa;
     float: right;

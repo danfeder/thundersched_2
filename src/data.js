@@ -195,6 +195,73 @@ class DataManager {
     getClasses() {
         return this.classes;
     }
+    
+    // Class management methods
+    addClass(classInfo) {
+        // Make sure the class doesn't already exist
+        const existingClass = this.classes.find(c => c.name === classInfo.name);
+        if (existingClass) {
+            return false; // Class already exists
+        }
+        
+        // Add the new class
+        this.classes.push(classInfo);
+        return true;
+    }
+    
+    updateClass(oldName, updatedClassInfo) {
+        // Find the class to update
+        const index = this.classes.findIndex(c => c.name === oldName);
+        if (index === -1) {
+            return false; // Class not found
+        }
+        
+        // Update the class
+        this.classes[index] = updatedClassInfo;
+        
+        // If the name changed, we need to update any scheduled instances
+        if (oldName !== updatedClassInfo.name) {
+            // Update scheduled classes in all weeks
+            Object.keys(this.scheduleWeeks).forEach(weekOffset => {
+                const weekSchedule = this.scheduleWeeks[weekOffset];
+                
+                Object.keys(weekSchedule).forEach(dateStr => {
+                    Object.keys(weekSchedule[dateStr]).forEach(period => {
+                        if (weekSchedule[dateStr][period] === oldName) {
+                            weekSchedule[dateStr][period] = updatedClassInfo.name;
+                        }
+                    });
+                });
+            });
+        }
+        
+        return true;
+    }
+    
+    deleteClass(className) {
+        // Check if the class is scheduled anywhere
+        if (this.isClassScheduled(className)) {
+            return false; // Can't delete a scheduled class
+        }
+        
+        // Remove the class
+        const index = this.classes.findIndex(c => c.name === className);
+        if (index === -1) {
+            return false; // Class not found
+        }
+        
+        this.classes.splice(index, 1);
+        return true;
+    }
+    
+    isClassScheduled(className) {
+        // Check all weeks to see if this class is scheduled anywhere
+        return Object.values(this.scheduleWeeks).some(weekSchedule => {
+            return Object.values(weekSchedule).some(daySchedule => {
+                return Object.values(daySchedule).includes(className);
+            });
+        });
+    }
 
     getSchedule() {
         return this.getCurrentWeekSchedule();
