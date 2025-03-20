@@ -32,16 +32,34 @@ class Scheduler {
         // are still considered valid (though with confirmation required)
         // This allows teacher unavailable periods to show as green (available)
 
-        // Check if placing here would create 3+ consecutive classes
+        // Get current configuration values
+        const config = this.dataManager.getConfig();
+
+        // Check if placing here would create too many consecutive classes
         const consecutiveClasses = this.countConsecutiveClasses(dateStr, period);
-        if (consecutiveClasses >= 2) {
-            return { valid: false, reason: `Conflict: ${className} would create 3 or more consecutive classes.` };
+        if (consecutiveClasses >= config.maxConsecutiveClasses) {
+            return { 
+                valid: false, 
+                reason: `Conflict: ${className} would create ${config.maxConsecutiveClasses + 1} or more consecutive classes.` 
+            };
         }
 
-        // Check daily class limit (3-4 per day)
+        // Check daily class limit
         const dailyClasses = this.countDailyClasses(dateStr);
-        if (dailyClasses >= 4) {
-            return { valid: false, reason: `Conflict: ${className} would exceed the daily class limit of 4.` };
+        if (dailyClasses >= config.maxClassesPerDay) {
+            return { 
+                valid: false, 
+                reason: `Conflict: ${className} would exceed the daily class limit of ${config.maxClassesPerDay}.` 
+            };
+        }
+        
+        // Check weekly class limit
+        const weeklyClasses = this.countWeeklyClasses();
+        if (weeklyClasses >= config.maxClassesPerWeek) {
+            return { 
+                valid: false, 
+                reason: `Conflict: ${className} would exceed the weekly limit of ${config.maxClassesPerWeek} classes.` 
+            };
         }
 
         return { valid: true };
@@ -95,12 +113,13 @@ class Scheduler {
     }
 
     countWeeklyClasses() {
-        const schedule = this.dataManager.getSchedule();
+        // Get only the current week's schedule rather than all weeks
+        const currentWeek = this.dataManager.getCurrentWeekSchedule();
         let count = 0;
         
-        Object.values(schedule).forEach(daySchedule => {
-            Object.values(daySchedule).forEach(className => {
-                if (className) count++;
+        Object.keys(currentWeek).forEach(dateStr => {
+            Object.keys(currentWeek[dateStr]).forEach(period => {
+                if (currentWeek[dateStr][period]) count++;
             });
         });
         
@@ -146,5 +165,97 @@ class Scheduler {
         });
         
         return mostConstrainedClass;
+    }
+    
+    hasAnyClassesScheduled() {
+        const currentWeek = this.dataManager.getCurrentWeekSchedule();
+        
+        return Object.values(currentWeek).some(daySchedule => {
+            return Object.values(daySchedule).some(className => !!className);
+        });
+    }
+    
+    findInvalidPlacementsWithNewConstraints(newConfig) {
+        const invalid = [];
+        const weekSchedule = this.dataManager.getCurrentWeekSchedule();
+        
+        // Check consecutive classes
+        if (newConfig.maxConsecutiveClasses < this.dataManager.config.maxConsecutiveClasses) {
+            Object.keys(weekSchedule).forEach(dateStr => {
+                for (let p = 1; p <= 8; p++) {
+                    const className = weekSchedule[dateStr][p];
+                    if (!className) continue;
+                    
+                    // Check if this class has more consecutive classes than the new limit
+                    const consecutive = this.countConsecutiveClasses(dateStr, p);
+                    if (consecutive >= newConfig.maxConsecutiveClasses) {
+                        invalid.push({
+                            className,
+                            dateStr,
+                            period: p,
+                            reason: `Would create ${consecutive + 1} consecutive classes (new limit: ${newConfig.maxConsecutiveClasses})`
+                        });
+                    }
+                }
+            });
+        }
+        
+        // Check daily class limit
+        if (newConfig.maxClassesPerDay < this.dataManager.config.maxClassesPerDay) {
+            Object.keys(weekSchedule).forEach(dateStr => {
+                const dailyClasses = this.countDailyClasses(dateStr);
+                if (dailyClasses > newConfig.maxClassesPerDay) {
+                    // Add the last (dailyClasses - newConfig.maxClassesPerDay) classes to invalid list
+                    const toRemove = dailyClasses - newConfig.maxClassesPerDay;
+                    let found = 0;
+                    
+                    // Start from last period and work backwards to find classes to mark invalid
+                    for (let p = 8; p >= 1 && found < toRemove; p--) {
+                        const className = weekSchedule[dateStr][p];
+                        if (className) {
+                            invalid.push({
+                                className,
+                                dateStr,
+                                period: p,
+                                reason: `Exceeds new daily limit of ${newConfig.maxClassesPerDay} classes`
+                            });
+                            found++;
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Check weekly class limit
+        if (newConfig.maxClassesPerWeek < this.dataManager.config.maxClassesPerWeek) {
+            const weeklyClasses = this.countWeeklyClasses();
+            if (weeklyClasses > newConfig.maxClassesPerWeek) {
+                // Add the last (weeklyClasses - newConfig.maxClassesPerWeek) classes to invalid list
+                const toRemove = weeklyClasses - newConfig.maxClassesPerWeek;
+                let found = 0;
+                
+                // Go through days in reverse order
+                const dates = Object.keys(weekSchedule).sort().reverse();
+                for (const dateStr of dates) {
+                    if (found >= toRemove) break;
+                    
+                    // Start from last period and work backwards
+                    for (let p = 8; p >= 1 && found < toRemove; p--) {
+                        const className = weekSchedule[dateStr][p];
+                        if (className) {
+                            invalid.push({
+                                className,
+                                dateStr,
+                                period: p,
+                                reason: `Exceeds new weekly limit of ${newConfig.maxClassesPerWeek} classes`
+                            });
+                            found++;
+                        }
+                    }
+                }
+            }
+        }
+        
+        return invalid;
     }
 }

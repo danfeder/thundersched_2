@@ -16,11 +16,23 @@ class DataManager {
         // Teacher unavailability data - organized by week offset, date, and period
         this.teacherUnavailability = {};
         
+        // Default configuration settings
+        this.config = {
+            maxConsecutiveClasses: 2,
+            maxClassesPerDay: 4,
+            minClassesPerWeek: 12,
+            maxClassesPerWeek: 16
+        };
+        
         // Initialize empty schedule for first week
         this.initializeEmptyWeek(0);
         
-        // Try to load classes from localStorage during initialization
+        // Try to load classes and configuration from localStorage during initialization
         this.loadClassesFromLocalStorage();
+        this.loadConfigFromLocalStorage();
+        
+        // Delayed validation of existing schedule against constraints (needs scheduler to be initialized)
+        setTimeout(() => this.validateExistingScheduleAgainstConstraints(), 1000);
     }
     
     loadClassesFromLocalStorage() {
@@ -534,5 +546,44 @@ class DataManager {
         
         
         return !isCurrentlyUnavailable; // Return the new state
+    }
+    
+    // Configuration management methods
+    loadConfigFromLocalStorage() {
+        try {
+            const storedConfig = localStorage.getItem('cooking-class-config');
+            if (storedConfig) {
+                this.config = {...this.config, ...JSON.parse(storedConfig)};
+                console.log('Loaded configuration from localStorage:', this.config);
+            }
+        } catch (error) {
+            console.error('Error loading configuration from localStorage:', error);
+        }
+    }
+    
+    saveConfigToLocalStorage() {
+        localStorage.setItem('cooking-class-config', JSON.stringify(this.config));
+        console.log('Saved configuration to localStorage:', this.config);
+    }
+    
+    getConfig() {
+        return this.config;
+    }
+    
+    updateConfig(newConfig) {
+        this.config = {...this.config, ...newConfig};
+        this.saveConfigToLocalStorage();
+        return this.config;
+    }
+    
+    validateExistingScheduleAgainstConstraints() {
+        // This will be called after initialization to check existing schedule against default constraints
+        if (Object.keys(this.scheduleWeeks).length > 0 && window.scheduler) {
+            const invalidPlacements = window.scheduler.findInvalidPlacementsWithNewConstraints(this.config);
+            if (invalidPlacements.length > 0) {
+                console.warn(`Found ${invalidPlacements.length} placement(s) that violate current constraints`);
+                // We don't auto-remove them, but could notify the user in the UI
+            }
+        }
     }
 }

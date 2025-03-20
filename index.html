@@ -19,6 +19,7 @@
                 
                 <div class="controls">
                     <button id="suggest-next-btn" class="btn">Suggest Next Class</button>
+                    <button id="config-btn" class="btn btn-secondary">Configure Constraints</button>
                     <button id="export-btn" class="btn btn-secondary">Export Schedule</button>
                     <button id="manage-classes-btn" class="btn btn-secondary" onclick="window.openClassManager()">Manage Classes</button>
                     <div class="teacher-mode-toggle">
@@ -34,6 +35,13 @@
                         <div id="schedule-progress" class="progress"></div>
                     </div>
                     <div id="progress-text">0 of 0 classes scheduled</div>
+                    
+                    <div class="constraint-status">
+                        <div id="weekly-constraint-indicator" class="constraint-indicator">
+                            <span>Weekly: <span id="week-count">0</span>/<span id="week-limit">12-16</span></span>
+                        </div>
+                    </div>
+                    
                     <div id="message-area" class="message-area"></div>
                 </div>
             </div>
@@ -83,11 +91,19 @@
             <h3>Scheduling Rules</h3>
             <ul>
                 <li>Classes cannot be scheduled during their conflict periods</li>
-                <li>Maximum of 4 classes per day</li>
-                <li>No more than 2 consecutive classes (to avoid 3+ in a row)</li>
-                <li>Weekly teaching load: 12-16 classes total</li>
+                <li>Maximum of 4 classes per day (configurable)</li>
+                <li>No more than 2 consecutive classes (configurable)</li>
+                <li>Weekly teaching load: 12-16 classes total (configurable)</li>
                 <li>Each class can only be scheduled once across all weeks</li>
                 <li>Classes cannot be scheduled during teacher unavailability periods</li>
+            </ul>
+            
+            <h3>Configurable Constraints</h3>
+            <ul>
+                <li><strong>Consecutive Class Limit:</strong> You can set the maximum number of consecutive classes allowed</li>
+                <li><strong>Daily Class Limit:</strong> You can specify how many classes can be scheduled per day</li>
+                <li><strong>Weekly Class Range:</strong> You can set minimum and maximum classes per week targets</li>
+                <li><strong>Constraint Configuration:</strong> Click the "Configure Constraints" button to modify these settings</li>
             </ul>
             
             <h3>Teacher Mode</h3>
@@ -166,6 +182,63 @@
                         </div>
                     </form>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Configuration Modal -->
+    <div id="config-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Scheduling Constraints</h2>
+            
+            <form id="config-form">
+                <div class="form-group">
+                    <label for="max-consecutive">Maximum Consecutive Classes:</label>
+                    <input type="number" id="max-consecutive" min="1" max="8" value="2">
+                    <div class="help-text">Maximum number of classes that can be scheduled in a row</div>
+                    <div class="tooltip">Recommended: 2-3. Higher values may lead to teacher fatigue.</div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="max-daily">Maximum Classes Per Day:</label>
+                    <input type="number" id="max-daily" min="1" max="8" value="4">
+                    <div class="help-text">Maximum number of classes per day</div>
+                    <div class="tooltip">Recommended: 3-4. Higher values may overload daily schedule.</div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="min-weekly">Minimum Classes Per Week:</label>
+                    <input type="number" id="min-weekly" min="0" max="40" value="12">
+                    <div class="help-text">Target minimum classes per week</div>
+                    <div class="tooltip">Recommended: 12-14. This is a target, not strictly enforced.</div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="max-weekly">Maximum Classes Per Week:</label>
+                    <input type="number" id="max-weekly" min="1" max="40" value="16">
+                    <div class="help-text">Maximum classes allowed per week</div>
+                    <div class="tooltip">Recommended: 14-16. Higher values may exceed teaching capacity.</div>
+                </div>
+                
+                <div id="config-warning-container"></div>
+                
+                <div class="form-actions">
+                    <button type="submit" class="btn">Save Configuration</button>
+                    <button type="button" id="reset-config-btn" class="btn btn-secondary">Reset to Defaults</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Confirmation Dialog Modal -->
+    <div id="confirm-dialog" class="modal">
+        <div class="modal-content">
+            <h2 id="confirm-title">Confirmation</h2>
+            <p id="confirm-message"></p>
+            <div id="confirm-details"></div>
+            <div class="dialog-actions" id="confirm-buttons">
+                <!-- Buttons will be added dynamically -->
             </div>
         </div>
     </div>

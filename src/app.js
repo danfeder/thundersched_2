@@ -4,8 +4,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const dataManager = new DataManager();
     const scheduler = new Scheduler(dataManager);
     
-    // Make dataManager available globally for the class manager
+    // Make dataManager and scheduler available globally
     window.dataManager = dataManager;
+    window.scheduler = scheduler;
     
     // Add helper methods for data persistence
     window.saveScheduleToLocalStorage = function() {
@@ -36,6 +37,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderScheduleGrid();
     renderUnscheduledClasses();
     updateProgress();
+    updateConstraintStatus();
     
     // Show welcome message
     showMessage('info', 'Welcome! Click on a class to see available slots, then drag and drop to schedule it.', 6000);
@@ -45,6 +47,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('export-btn').addEventListener('click', exportSchedule);
     document.getElementById('help-btn').addEventListener('click', showHelp);
     document.getElementById('reset-btn').addEventListener('click', resetSchedule);
+    document.getElementById('config-btn').addEventListener('click', showConfigModal);
     
     // Teacher mode toggle
     const teacherModeToggle = document.getElementById('teacher-mode');
@@ -67,17 +70,32 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Display current week
     updateCurrentWeekDisplay();
     
-    // Help modal close button
-    document.querySelector('.close').addEventListener('click', () => {
-        document.getElementById('help-modal').style.display = 'none';
+    // Config form submission
+    document.getElementById('config-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        handleConfigFormSubmit();
     });
     
-    // Close modal when clicking outside
+    // Reset config button
+    document.getElementById('reset-config-btn').addEventListener('click', resetConfigForm);
+    
+    // Modal close buttons
+    document.querySelectorAll('.modal .close').forEach(closeBtn => {
+        closeBtn.addEventListener('click', function() {
+            const modal = this.closest('.modal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        });
+    });
+    
+    // Close modals when clicking outside
     window.addEventListener('click', (e) => {
-        const modal = document.getElementById('help-modal');
-        if (e.target === modal) {
-            modal.style.display = 'none';
-        }
+        document.querySelectorAll('.modal').forEach(modal => {
+            if (e.target === modal) {
+                modal.style.display = 'none';
+            }
+        });
     });
     
     function initializeUI() {
@@ -221,6 +239,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 cell.classList.add('teacher-mode-active');
             });
         }
+        
+        // Update constraint status indicators
+        updateConstraintStatus();
     }
     
     function renderUnscheduledClasses() {
@@ -688,6 +709,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     // Update UI
                     renderScheduleGrid();
                     updateProgress();
+                    updateConstraintStatus();
                     clearHighlights();
                     updateCurrentWeekDisplay();
                     
@@ -836,5 +858,207 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
             }
         });
+    }
+    
+    // Configuration UI functions
+    function updateConstraintStatus() {
+        const config = dataManager.getConfig();
+        const weeklyClasses = scheduler.countWeeklyClasses();
+        
+        document.getElementById('week-count').textContent = weeklyClasses;
+        document.getElementById('week-limit').textContent = `${config.minClassesPerWeek}-${config.maxClassesPerWeek}`;
+        
+        const indicator = document.getElementById('weekly-constraint-indicator');
+        
+        if (weeklyClasses > config.maxClassesPerWeek) {
+            indicator.className = 'constraint-indicator exceeded';
+        } else if (weeklyClasses >= config.minClassesPerWeek) {
+            indicator.className = 'constraint-indicator optimal';
+        } else {
+            indicator.className = 'constraint-indicator under';
+        }
+    }
+    
+    function showConfigModal() {
+        const modal = document.getElementById('config-modal');
+        const config = dataManager.getConfig();
+        const hasExistingSchedule = scheduler.hasAnyClassesScheduled();
+        
+        // Populate form with current values
+        document.getElementById('max-consecutive').value = config.maxConsecutiveClasses;
+        document.getElementById('max-daily').value = config.maxClassesPerDay;
+        document.getElementById('min-weekly').value = config.minClassesPerWeek;
+        document.getElementById('max-weekly').value = config.maxClassesPerWeek;
+        
+        // Add warning if schedule exists
+        const warningContainer = document.getElementById('config-warning-container');
+        warningContainer.innerHTML = '';
+        
+        if (hasExistingSchedule) {
+            const warning = document.createElement('div');
+            warning.className = 'warning-message';
+            warning.textContent = 'Warning: Changing constraints may invalidate parts of your current schedule.';
+            warningContainer.appendChild(warning);
+        }
+        
+        // Show the modal
+        modal.style.display = 'block';
+    }
+    
+    function resetConfigForm() {
+        if (confirm('Reset configuration to default values?')) {
+            // Reset form values
+            document.getElementById('max-consecutive').value = 2;
+            document.getElementById('max-daily').value = 4;
+            document.getElementById('min-weekly').value = 12;
+            document.getElementById('max-weekly').value = 16;
+            
+            showMessage('info', 'Form reset to default values. Click Save to apply changes.');
+        }
+    }
+    
+    function handleConfigFormSubmit() {
+        // Get values from form
+        const newConfig = {
+            maxConsecutiveClasses: parseInt(document.getElementById('max-consecutive').value),
+            maxClassesPerDay: parseInt(document.getElementById('max-daily').value),
+            minClassesPerWeek: parseInt(document.getElementById('min-weekly').value),
+            maxClassesPerWeek: parseInt(document.getElementById('max-weekly').value)
+        };
+        
+        // Validate ranges
+        if (newConfig.maxClassesPerWeek < newConfig.minClassesPerWeek) {
+            showMessage('error', 'Maximum weekly classes must be greater than minimum weekly classes.');
+            return;
+        }
+        
+        // Check if any constraints are being tightened
+        const currentConfig = dataManager.getConfig();
+        const isTightening = 
+            newConfig.maxConsecutiveClasses < currentConfig.maxConsecutiveClasses ||
+            newConfig.maxClassesPerDay < currentConfig.maxClassesPerDay ||
+            newConfig.maxClassesPerWeek < currentConfig.maxClassesPerWeek;
+        
+        if (isTightening && scheduler.hasAnyClassesScheduled()) {
+            // Find what would become invalid
+            const invalidPlacements = scheduler.findInvalidPlacementsWithNewConstraints(newConfig);
+            
+            if (invalidPlacements.length > 0) {
+                // Build details HTML
+                let detailsHtml = `<p>The following ${invalidPlacements.length} placements would become invalid:</p>`;
+                detailsHtml += '<ul>';
+                
+                invalidPlacements.slice(0, 10).forEach(p => {
+                    detailsHtml += `<li>${p.className} on ${p.dateStr} period ${p.period}: ${p.reason}</li>`;
+                });
+                
+                if (invalidPlacements.length > 10) {
+                    detailsHtml += `<li>...and ${invalidPlacements.length - 10} more</li>`;
+                }
+                
+                detailsHtml += '</ul>';
+                
+                // Show confirmation with details
+                showConfirmDialog({
+                    title: 'Constraint Change Impact',
+                    message: 'Changing these constraints will invalidate existing placements. What would you like to do?',
+                    details: detailsHtml,
+                    buttons: [
+                        {
+                            text: 'Remove invalid placements',
+                            class: 'btn btn-danger',
+                            action: () => {
+                                // Remove invalid placements
+                                invalidPlacements.forEach(p => {
+                                    dataManager.unscheduleClass(p.dateStr, p.period);
+                                });
+                                
+                                // Update config
+                                dataManager.updateConfig(newConfig);
+                                document.getElementById('config-modal').style.display = 'none';
+                                
+                                // Explicitly save schedule to localStorage
+                                window.saveScheduleToLocalStorage();
+                                
+                                // Refresh UI
+                                renderScheduleGrid();
+                                renderUnscheduledClasses();
+                                updateProgress();
+                                updateConstraintStatus();
+                                showMessage('warning', `Constraints updated. ${invalidPlacements.length} invalid placements were removed.`);
+                            }
+                        },
+                        {
+                            text: 'Keep current schedule',
+                            class: 'btn',
+                            action: () => {
+                                // Don't change config
+                                document.getElementById('config-modal').style.display = 'none';
+                                showMessage('info', 'Constraint changes cancelled to preserve current schedule.');
+                            }
+                        }
+                    ]
+                });
+                return;
+            }
+        }
+        
+        // No conflicts or user chose to proceed
+        dataManager.updateConfig(newConfig);
+        document.getElementById('config-modal').style.display = 'none';
+        
+        // Refresh UI
+        renderScheduleGrid();
+        updateConstraintStatus();
+        
+        // If a class is selected, refresh its available slots
+        const selectedClass = document.querySelector('.class-item.suggested');
+        if (selectedClass) {
+            highlightAvailableSlots(selectedClass.dataset.className);
+        }
+        
+        showMessage('success', 'Scheduling constraints updated successfully.');
+    }
+    
+    function showConfirmDialog(options) {
+        const modal = document.getElementById('confirm-dialog');
+        const titleEl = document.getElementById('confirm-title');
+        const messageEl = document.getElementById('confirm-message');
+        const detailsEl = document.getElementById('confirm-details');
+        const buttonsEl = document.getElementById('confirm-buttons');
+        
+        // Set content
+        titleEl.textContent = options.title || 'Confirmation';
+        messageEl.textContent = options.message || 'Are you sure?';
+        
+        // Set details if provided
+        if (options.details) {
+            detailsEl.innerHTML = options.details;
+            detailsEl.style.display = 'block';
+        } else {
+            detailsEl.style.display = 'none';
+        }
+        
+        // Clear previous buttons
+        buttonsEl.innerHTML = '';
+        
+        // Add buttons
+        options.buttons.forEach(btn => {
+            const button = document.createElement('button');
+            button.textContent = btn.text;
+            button.className = btn.class || 'btn';
+            
+            button.addEventListener('click', () => {
+                modal.style.display = 'none';
+                if (typeof btn.action === 'function') {
+                    btn.action();
+                }
+            });
+            
+            buttonsEl.appendChild(button);
+        });
+        
+        // Show the modal
+        modal.style.display = 'block';
     }
 });

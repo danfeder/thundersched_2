@@ -731,3 +731,102 @@ header {
     font-weight: bold;
     color: #455a64;
 }
+
+/* Configuration form styles */
+#config-form .form-group {
+    margin-bottom: 1.5rem;
+    position: relative;
+}
+
+#config-form input[type="number"] {
+    width: 5rem;
+    text-align: center;
+    padding: 0.5rem;
+}
+
+.help-text {
+    font-size: 0.85rem;
+    color: #757575;
+    margin-top: 0.25rem;
+    font-style: italic;
+}
+
+.tooltip {
+    font-size: 0.8rem;
+    color: #2196f3;
+    margin-top: 0.25rem;
+    display: none;
+    background: #e3f2fd;
+    padding: 6px 10px;
+    border-radius: 4px;
+    border-left: 3px solid #2196f3;
+}
+
+.form-group:hover .tooltip {
+    display: block;
+}
+
+/* Warning message */
+.warning-message {
+    background-color: #fff3e0;
+    color: #e65100;
+    padding: 12px 16px;
+    border-radius: 4px;
+    margin: 16px 0;
+    border-left: 4px solid #ff9800;
+    font-weight: bold;
+}
+
+/* Custom dialog styles */
+.dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 20px;
+}
+
+#confirm-details {
+    max-height: 200px;
+    overflow-y: auto;
+    margin: 10px 0;
+    border: 1px solid #eee;
+    padding: 10px;
+    background-color: #f9f9f9;
+    border-radius: 4px;
+}
+
+/* Constraint status indicator styles */
+.constraint-status {
+    margin-top: 16px;
+    padding: 10px;
+    background-color: #f5f5f5;
+    border-radius: 4px;
+}
+
+.constraint-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px;
+    border-radius: 4px;
+    margin-bottom: 6px;
+    font-size: 0.85rem;
+}
+
+.constraint-indicator.under {
+    background-color: #e3f2fd;
+    color: #0d47a1;
+    border-left: 3px solid #2196f3;
+}
+
+.constraint-indicator.optimal {
+    background-color: #e8f5e9;
+    color: #1b5e20;
+    border-left: 3px solid #4caf50;
+}
+
+.constraint-indicator.exceeded {
+    background-color: #ffebee;
+    color: #b71c1c;
+    border-left: 3px solid #f44336;
+}
