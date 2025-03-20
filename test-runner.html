@@ -100,8 +100,14 @@
             <div>
                 <label for="class-name">Class Name:</label>
                 <input type="text" id="class-name" class="test-input" value="PK101">
-                <label for="weekday">Weekday (0-6):</label>
-                <input type="number" id="weekday" class="test-input" min="0" max="6" value="1">
+                <label for="weekday">Weekday:</label>
+                <select id="weekday" class="test-input">
+                    <option value="Monday">Monday</option>
+                    <option value="Tuesday">Tuesday</option>
+                    <option value="Wednesday">Wednesday</option>
+                    <option value="Thursday">Thursday</option>
+                    <option value="Friday">Friday</option>
+                </select>
                 <label for="period">Period (1-8):</label>
                 <input type="number" id="period" class="test-input" min="1" max="8" value="3">
                 <button class="test-button" onclick="testHasConflict()">Test hasConflict()</button>
@@ -331,7 +337,7 @@
         function testHasConflict() {
             try {
                 const className = document.getElementById('class-name').value;
-                const weekday = parseInt(document.getElementById('weekday').value);
+                const weekday = document.getElementById('weekday').value; // Now a string like "Monday"
                 const period = parseInt(document.getElementById('period').value);
                 
                 // Create a DataManager instance if needed
@@ -345,16 +351,36 @@
                     showResult('has-conflict-result', `Class "${className}" not found. Please enter a valid class name.`, false);
                     return;
                 }
-                
-                // Convert weekday to a date string (we need a date to test conflicts)
+
+                // Create a date object for today
                 const today = new Date();
-                const daysToAdd = (weekday - today.getDay() + 7) % 7;
+                
+                // Map weekday strings to day numbers (0 = Sunday, 1 = Monday, etc.)
+                const weekdayMap = {
+                    "Monday": 1,
+                    "Tuesday": 2,
+                    "Wednesday": 3,
+                    "Thursday": 4,
+                    "Friday": 5
+                };
+                
+                // Get the numeric day value for the selected weekday
+                const selectedDayNum = weekdayMap[weekday];
+                
+                // Calculate days to add to get to the selected weekday
+                const daysToAdd = (selectedDayNum - today.getDay() + 7) % 7;
+                
+                // Create a date for the selected weekday
                 const targetDate = new Date(today);
                 targetDate.setDate(today.getDate() + daysToAdd);
+                
+                // Format as YYYY-MM-DD
                 const dateStr = window.testDataManager.getFormattedDate(targetDate);
                 
+                // Test for conflicts
                 const result = window.testDataManager.hasConflict(className, dateStr, period);
-                const display = `Class ${className} on ${targetDate.toDateString()} (weekday ${weekday}) period ${period}: ${result ? 'HAS CONFLICT' : 'NO CONFLICT'}`;
+                
+                const display = `Class ${className} on ${weekday} (${targetDate.toDateString()}) period ${period}: ${result ? 'HAS CONFLICT' : 'NO CONFLICT'}`;
                 showResult('has-conflict-result', display, true);
             } catch (error) {
                 showResult('has-conflict-result', `Error: ${error.message}`, false);
