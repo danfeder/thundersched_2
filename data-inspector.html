@@ -86,6 +86,7 @@
         <div class="data-section">
             <h2>Classes Data</h2>
             <button class="control-button refresh-button" onclick="refreshClassesData()">Refresh Classes Data</button>
+            <label><input type="checkbox" id="auto-refresh"> Auto-refresh (every 3s)</label>
             <div id="classes-data-view"></div>
             
             <h3>Class Conflicts Table</h3>
@@ -147,6 +148,9 @@
         // Initialize DataManager
         let dataManager;
         
+        // Auto-refresh interval
+        let autoRefreshInterval = null;
+        
         // Initialize the page
         document.addEventListener('DOMContentLoaded', function() {
             // Create the DataManager
@@ -160,6 +164,28 @@
             refreshScheduleData();
             refreshTeacherData();
             updateStorageInfo();
+            
+            // Set up auto-refresh toggle
+            document.getElementById('auto-refresh').addEventListener('change', function(e) {
+                if (e.target.checked) {
+                    // Start auto-refresh
+                    autoRefreshInterval = setInterval(function() {
+                        loadDataFromLocalStorage();
+                        refreshClassesData();
+                        refreshScheduleData();
+                        refreshTeacherData();
+                        updateStorageInfo();
+                    }, 3000); // Refresh every 3 seconds
+                    console.log("Auto-refresh enabled");
+                } else {
+                    // Stop auto-refresh
+                    if (autoRefreshInterval) {
+                        clearInterval(autoRefreshInterval);
+                        autoRefreshInterval = null;
+                        console.log("Auto-refresh disabled");
+                    }
+                }
+            });
         });
         
         function loadDataFromLocalStorage() {
