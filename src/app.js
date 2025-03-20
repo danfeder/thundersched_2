@@ -1157,6 +1157,17 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
         
+        // Check for duplicate names
+        const isDuplicateName = dataManager.savedSchedules.some(schedule => 
+            schedule.name.toLowerCase() === name.toLowerCase()
+        );
+        
+        if (isDuplicateName) {
+            showMessage('error', `A schedule named "${name}" already exists. Please use a different name.`);
+            isSavingSchedule = false;
+            return;
+        }
+        
         const description = document.getElementById('schedule-description').value.trim();
         console.log('Saving schedule with name:', name, 'description:', description);
         
