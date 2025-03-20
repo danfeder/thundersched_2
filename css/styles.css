@@ -396,6 +396,24 @@ header {
     padding-left: 1.5rem;
 }
 
+/* Modal error message */
+.modal-error-message {
+    background-color: #ffebee;
+    color: #d32f2f;
+    padding: 12px 16px;
+    border-radius: 4px;
+    margin-bottom: 16px;
+    border-left: 4px solid #d32f2f;
+    font-weight: bold;
+    display: none;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
 .class-list-container {
     height: 300px;
     overflow-y: auto;

@@ -244,6 +244,39 @@ function clearConflicts() {
     });
 }
 
+// Function to show an error message within the modal
+function showModalErrorMessage(message) {
+    // Check if there's already an error message container
+    let errorContainer = document.querySelector('.modal-error-message');
+    
+    if (!errorContainer) {
+        // Create a new error container if it doesn't exist
+        errorContainer = document.createElement('div');
+        errorContainer.className = 'modal-error-message';
+        
+        // Insert it at the top of the class editor
+        const classEditor = document.querySelector('.class-editor');
+        if (classEditor && classEditor.firstChild) {
+            classEditor.insertBefore(errorContainer, classEditor.firstChild);
+        } else {
+            // Fallback to append to modal content
+            const modalContent = document.querySelector('.class-manager-content');
+            if (modalContent) {
+                modalContent.appendChild(errorContainer);
+            }
+        }
+    }
+    
+    // Set the error message
+    errorContainer.textContent = message;
+    errorContainer.style.display = 'block';
+    
+    // Hide the error message after a few seconds
+    setTimeout(() => {
+        errorContainer.style.display = 'none';
+    }, 5000);
+}
+
 // Add new class button handler
 document.getElementById('add-class-btn')?.addEventListener('click', function() {
     // Deselect any selected class
@@ -395,6 +428,10 @@ document.getElementById('delete-class-btn')?.addEventListener('click', function(
     
     // Check if the class is scheduled anywhere
     if (window.dataManager?.isClassScheduled(selectedClassName)) {
+        // Show error message in the modal
+        showModalErrorMessage(`Cannot delete ${selectedClassName} because it is scheduled. Unschedule it first.`);
+        
+        // Also show in the main app if available
         if (window.showMessage) {
             window.showMessage('error', `Cannot delete ${selectedClassName} because it is scheduled. Unschedule it first.`);
         }
