@@ -23,72 +23,20 @@
     localStorage.removeItem('cooking-classes');
     localStorage.removeItem('teacher-unavailability');
     
-    // Generate class data with conflicts
+    // Use the same class data as the main application
     const testClasses = [
-        {
-            name: "PK101",
-            conflicts: {
-                "Monday": [1, 2],     // Monday periods 1-2
-                "Wednesday": [5, 6, 7, 8], // Wednesday periods 5-8
-                "Friday": [3, 4]      // Friday periods 3-4
-            }
-        },
-        {
-            name: "PK102",
-            conflicts: {
-                "Monday": [3, 4],     // Monday periods 3-4
-                "Tuesday": [1, 2],    // Tuesday periods 1-2
-                "Thursday": [5, 6]    // Thursday periods 5-6
-            }
-        },
-        {
-            name: "K101",
-            conflicts: {
-                "Monday": [5, 6],     // Monday periods 5-6
-                "Wednesday": [1, 2],  // Wednesday periods 1-2
-                "Friday": [7, 8]      // Friday periods 7-8
-            }
-        },
-        {
-            name: "K102",
-            conflicts: {
-                "Tuesday": [5, 6],    // Tuesday periods 5-6
-                "Thursday": [3, 4],   // Thursday periods 3-4
-                "Friday": [1, 2]      // Friday periods 1-2
-            }
-        },
-        {
-            name: "1A",
-            conflicts: {
-                "Monday": [7, 8],     // Monday periods 7-8
-                "Wednesday": [3, 4],  // Wednesday periods 3-4
-                "Thursday": [1, 2]    // Thursday periods 1-2
-            }
-        },
-        {
-            name: "1B",
-            conflicts: {
-                "Tuesday": [3, 4],    // Tuesday periods 3-4
-                "Wednesday": [7, 8],  // Wednesday periods 7-8
-                "Friday": [5, 6]      // Friday periods 5-6
-            }
-        },
-        {
-            name: "2A",
-            conflicts: {
-                "Monday": [6, 7, 8],  // Monday periods 6-8
-                "Tuesday": [7, 8],    // Tuesday periods 7-8
-                "Thursday": [7, 8]    // Thursday periods 7-8
-            }
-        },
-        {
-            name: "2B",
-            conflicts: {
-                "Tuesday": [1, 2],    // Tuesday periods 1-2
-                "Wednesday": [1, 2, 3], // Wednesday periods 1-3
-                "Friday": [1, 2]      // Friday periods 1-2
-            }
-        }
+        { name: "PK207", conflicts: { "Monday": [2], "Tuesday": [2], "Wednesday": [4], "Thursday": [3], "Friday": [1, 3] } },
+        { name: "PK214", conflicts: { "Monday": [2, 5], "Tuesday": [3, 5], "Wednesday": [1, 5], "Thursday": [5, 7], "Friday": [2, 3, 5] } },
+        { name: "PK208", conflicts: { "Monday": [2, 5], "Tuesday": [7, 5], "Wednesday": [2, 5], "Thursday": [2, 5], "Friday": [3, 5, 7] } },
+        { name: "PK213", conflicts: { "Monday": [2, 6], "Tuesday": [1, 6], "Wednesday": [6, 8], "Thursday": [2, 6], "Friday": [3, 4, 6] } },
+        { name: "K-313", conflicts: { "Monday": [1], "Tuesday": [4], "Wednesday": [2, 4], "Thursday": [4], "Friday": [8] } },
+        { name: "K-309", conflicts: { "Monday": [1], "Tuesday": [7], "Wednesday": [2, 7], "Thursday": [3], "Friday": [1] } },
+        { name: "K-311", conflicts: { "Monday": [1], "Tuesday": [7], "Wednesday": [2, 7], "Thursday": [1], "Friday": [3] } },
+        { name: "1-407", conflicts: { "Monday": [2], "Tuesday": [1], "Wednesday": [1], "Thursday": [2, 4], "Friday": [7] } },
+        { name: "1-409", conflicts: { "Monday": [4], "Tuesday": [1], "Wednesday": [3], "Thursday": [2, 5], "Friday": [4] } },
+        { name: "2-411", conflicts: { "Monday": [7], "Tuesday": [2, 8], "Wednesday": [1], "Thursday": [8], "Friday": [2] } },
+        { name: "3-418", conflicts: { "Monday": [8], "Tuesday": [3], "Wednesday": [3, 8], "Thursday": [1], "Friday": [8] } },
+        { name: "4-509", conflicts: { "Monday": [1], "Tuesday": [8], "Wednesday": [3], "Thursday": [3, 8], "Friday": [1] } }
     ];
     
     // Save test classes to local storage
@@ -114,22 +62,22 @@
     const scheduleData = {
         "0": { // Current week
             [currentWeekDateStrings[0]]: { // Monday
-                "3": "PK101",
-                "5": "K101"
+                "3": "PK207",
+                "5": "K-313"
             },
             [currentWeekDateStrings[1]]: { // Tuesday
-                "4": "PK102",
-                "7": "1A"
+                "4": "PK213",
+                "7": "1-407"
             }
         },
         "1": { // Next week
             [nextWeekDateStrings[2]]: { // Wednesday
-                "2": "K102",
-                "6": "2A"
+                "2": "PK214",
+                "6": "2-411"
             },
             [nextWeekDateStrings[3]]: { // Thursday
-                "5": "1B",
-                "7": "2B"
+                "5": "K-309",
+                "7": "3-418"
             }
         }
     };
