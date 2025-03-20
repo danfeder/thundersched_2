@@ -103,6 +103,7 @@
             <ul>
                 <li><strong>Opening Class Manager:</strong> Click the "Manage Classes" button to open the class manager</li>
                 <li><strong>Adding Classes:</strong> Click "Add New Class" to create a new class</li>
+                <li><strong>Importing Classes:</strong> Click "Import CSV" to import classes from a CSV file in the format of Class,Monday,Tuesday,Wednesday,Thursday,Friday where each day contains period numbers</li>
                 <li><strong>Editing Classes:</strong> Select a class from the list to edit its details</li>
                 <li><strong>Setting Conflicts:</strong> Click on periods in the conflict grid to mark times when a class CANNOT be scheduled</li>
                 <li><strong>Deleting Classes:</strong> Select a class and click "Delete Class" (only works for unscheduled classes)</li>
@@ -123,7 +124,10 @@
                     <div class="class-list-container">
                         <div id="class-list" class="class-list scrollable"></div>
                     </div>
-                    <button id="add-class-btn" class="btn">Add New Class</button>
+                    <div class="button-group">
+                        <button id="add-class-btn" class="btn">Add New Class</button>
+                        <button id="import-csv-btn" class="btn btn-secondary" type="button">Import CSV</button>
+                    </div>
                 </div>
                 
                 <div class="class-editor">

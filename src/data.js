@@ -18,6 +18,23 @@ class DataManager {
         
         // Initialize empty schedule for first week
         this.initializeEmptyWeek(0);
+        
+        // Try to load classes from localStorage during initialization
+        this.loadClassesFromLocalStorage();
+    }
+    
+    loadClassesFromLocalStorage() {
+        try {
+            const storedClasses = localStorage.getItem('cooking-classes');
+            if (storedClasses) {
+                this.classes = JSON.parse(storedClasses);
+                console.log(`Loaded ${this.classes.length} classes from localStorage during initialization`);
+                return true;
+            }
+        } catch (error) {
+            console.error('Error loading classes from localStorage:', error);
+        }
+        return false;
     }
     
     getNextMonday() {
@@ -144,30 +161,109 @@ class DataManager {
 
     async loadClassesFromCSV() {
         try {
-            // For testing, let's hardcode the class data instead of loading from CSV
-            // This avoids file loading issues in local development
-            const classData = [
-                { name: "PK207", conflicts: { "Monday": [2], "Tuesday": [2], "Wednesday": [4], "Thursday": [3], "Friday": [1, 3] } },
-                { name: "PK214", conflicts: { "Monday": [2, 5], "Tuesday": [3, 5], "Wednesday": [1, 5], "Thursday": [5, 7], "Friday": [2, 3, 5] } },
-                { name: "PK208", conflicts: { "Monday": [2, 5], "Tuesday": [7, 5], "Wednesday": [2, 5], "Thursday": [2, 5], "Friday": [3, 5, 7] } },
-                { name: "PK213", conflicts: { "Monday": [2, 6], "Tuesday": [1, 6], "Wednesday": [6, 8], "Thursday": [2, 6], "Friday": [3, 4, 6] } },
-                { name: "K-313", conflicts: { "Monday": [1], "Tuesday": [4], "Wednesday": [2, 4], "Thursday": [4], "Friday": [8] } },
-                { name: "K-309", conflicts: { "Monday": [1], "Tuesday": [7], "Wednesday": [2, 7], "Thursday": [3], "Friday": [1] } },
-                { name: "K-311", conflicts: { "Monday": [1], "Tuesday": [7], "Wednesday": [2, 7], "Thursday": [1], "Friday": [3] } },
-                { name: "1-407", conflicts: { "Monday": [2], "Tuesday": [1], "Wednesday": [1], "Thursday": [2, 4], "Friday": [7] } },
-                { name: "1-409", conflicts: { "Monday": [4], "Tuesday": [1], "Wednesday": [3], "Thursday": [2, 5], "Friday": [4] } },
-                { name: "2-411", conflicts: { "Monday": [7], "Tuesday": [2, 8], "Wednesday": [1], "Thursday": [8], "Friday": [2] } },
-                { name: "3-418", conflicts: { "Monday": [8], "Tuesday": [3], "Wednesday": [3, 8], "Thursday": [1], "Friday": [8] } },
-                { name: "4-509", conflicts: { "Monday": [1], "Tuesday": [8], "Wednesday": [3], "Thursday": [3, 8], "Friday": [1] } }
-            ];
+            // Check if we already have classes loaded from localStorage during initialization
+            if (this.classes && this.classes.length > 0) {
+                console.log(`Using ${this.classes.length} classes already loaded from localStorage`);
+                return this.classes;
+            }
             
-            this.classes = classData;
-            console.log("Loaded classes:", this.classes);
-            return this.classes;
+            // Path to the CSV file
+            const csvFilePath = 'ClassesAndConflicts.csv';
+            
+            try {
+                // Fetch the CSV file
+                const response = await fetch(csvFilePath);
+                
+                if (!response.ok) {
+                    throw new Error(`Failed to load CSV file: ${response.status} ${response.statusText}`);
+                }
+                
+                const csvText = await response.text();
+                console.log("CSV loaded, parsing...");
+                
+                // Parse the CSV data
+                const classData = this.parseCSVData(csvText);
+                
+                this.classes = classData;
+                console.log(`Loaded ${this.classes.length} classes from CSV file`);
+                
+                // Store the classes in localStorage for persistence
+                localStorage.setItem('cooking-classes', JSON.stringify(this.classes));
+                console.log("Classes saved to localStorage");
+                
+                return this.classes;
+            } catch (fetchError) {
+                console.error('Error fetching CSV file:', fetchError);
+                console.log('Attempting to load from localStorage...');
+                
+                // Attempt to load from localStorage as fallback
+                const loadedFromLocalStorage = this.loadClassesFromLocalStorage();
+                
+                if (loadedFromLocalStorage) {
+                    return this.classes;
+                } else {
+                    console.log('No classes found in localStorage, using hardcoded data');
+                    // Hardcoded fallback data (just a few example classes)
+                    this.classes = [
+                        { name: "PK207", conflicts: { "Monday": [2], "Tuesday": [2], "Wednesday": [4], "Thursday": [3], "Friday": [1, 3] } },
+                        { name: "K-313", conflicts: { "Monday": [1], "Tuesday": [4], "Wednesday": [2, 4], "Thursday": [4], "Friday": [8] } },
+                        { name: "1-407", conflicts: { "Monday": [2], "Tuesday": [1], "Wednesday": [1], "Thursday": [2, 4], "Friday": [7] } }
+                    ];
+                    return this.classes;
+                }
+            }
         } catch (error) {
-            console.error('Error loading class data:', error);
+            console.error('Error in loadClassesFromCSV:', error);
             return [];
         }
+    }
+    
+    parseCSVData(csvText) {
+        // Split the CSV text into lines and remove any empty lines
+        const lines = csvText.split('\n').filter(line => line.trim() !== '');
+        
+        // Skip the header row
+        const dataRows = lines.slice(1);
+        
+        const classData = [];
+        
+        // Process each row
+        for (const row of dataRows) {
+            // Use our CSV row parser to handle quoted values correctly
+            const values = this.parseCSVRow(row);
+            
+            if (values.length >= 6) { // Class name + 5 days of the week
+                // Keep quotes in class name if they exist (for mixed-grade classes)
+                // The CSV parser already removes the outer quotes but preserves commas inside
+                const className = values[0].trim();
+                
+                const conflicts = {
+                    "Monday": this.parseConflictPeriods(values[1]),
+                    "Tuesday": this.parseConflictPeriods(values[2]),
+                    "Wednesday": this.parseConflictPeriods(values[3]),
+                    "Thursday": this.parseConflictPeriods(values[4]),
+                    "Friday": this.parseConflictPeriods(values[5])
+                };
+                
+                classData.push({ name: className, conflicts });
+            }
+        }
+        
+        return classData;
+    }
+    
+    parseConflictPeriods(periodsString) {
+        // Trim whitespace and remove any quotes
+        const cleaned = periodsString.trim().replace(/"/g, '');
+        
+        // If empty, return an empty array
+        if (!cleaned) return [];
+        
+        // Split by comma and convert to numbers
+        return cleaned.split(',').map(period => {
+            // Remove any surrounding whitespace for each period
+            return parseInt(period.trim(), 10);
+        });
     }
 
     parseCSVRow(row) {
@@ -206,6 +302,11 @@ class DataManager {
         
         // Add the new class
         this.classes.push(classInfo);
+        
+        // Save to localStorage
+        localStorage.setItem('cooking-classes', JSON.stringify(this.classes));
+        console.log(`Class ${classInfo.name} added and saved to localStorage`);
+        
         return true;
     }
     
@@ -233,7 +334,14 @@ class DataManager {
                     });
                 });
             });
+            
+            // Save updated schedule to localStorage
+            localStorage.setItem('cooking-class-schedule', JSON.stringify(this.scheduleWeeks));
         }
+        
+        // Save updated classes to localStorage
+        localStorage.setItem('cooking-classes', JSON.stringify(this.classes));
+        console.log(`Class ${updatedClassInfo.name} updated and saved to localStorage`);
         
         return true;
     }
@@ -251,6 +359,11 @@ class DataManager {
         }
         
         this.classes.splice(index, 1);
+        
+        // Save to localStorage
+        localStorage.setItem('cooking-classes', JSON.stringify(this.classes));
+        console.log(`Class ${className} deleted and changes saved to localStorage`);
+        
         return true;
     }
     

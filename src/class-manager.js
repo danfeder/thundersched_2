@@ -1,5 +1,96 @@
 // Class Manager functionality
 
+// Function to handle CSV import
+function importCSVClasses() {
+    try {
+        // Check if the input element exists, create it if it doesn't
+        let fileInput = document.getElementById('csv-file-input');
+        
+        if (!fileInput) {
+            fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.id = 'csv-file-input';
+            fileInput.accept = '.csv';
+            fileInput.style.display = 'none';
+            document.body.appendChild(fileInput);
+            
+            // Add event listener for when a file is selected
+            fileInput.addEventListener('change', function(e) {
+                if (e.target.files.length === 0) return;
+                
+                const file = e.target.files[0];
+                const reader = new FileReader();
+                
+                reader.onload = function(event) {
+                    try {
+                        const csvText = event.target.result;
+                        
+                        // Parse CSV data
+                        if (window.dataManager) {
+                            const classData = window.dataManager.parseCSVData(csvText);
+                            
+                            // Check if there are any classes in the CSV
+                            if (classData.length === 0) {
+                                showModalErrorMessage('No valid classes found in the CSV file');
+                                return;
+                            }
+                            
+                            // Ask for confirmation if there are existing classes
+                            const existingClasses = window.dataManager.getClasses();
+                            
+                            let shouldProceed = true;
+                            if (existingClasses.length > 0) {
+                                shouldProceed = confirm(`You have ${existingClasses.length} existing classes. Importing will replace them. Continue?`);
+                            }
+                            
+                            if (shouldProceed) {
+                                // Replace existing classes with imported ones
+                                window.dataManager.classes = classData;
+                                
+                                // Save to localStorage
+                                localStorage.setItem('cooking-classes', JSON.stringify(classData));
+                                
+                                // Refresh the class list
+                                refreshClassList();
+                                
+                                // Update the unscheduled classes list and progress in the main app
+                                if (window.renderUnscheduledClasses) {
+                                    window.renderUnscheduledClasses();
+                                    if (typeof window.updateProgress === 'function') {
+                                        window.updateProgress();
+                                    }
+                                }
+                                
+                                // Show success message
+                                if (window.showMessage) {
+                                    window.showMessage('success', `Successfully imported ${classData.length} classes from CSV`);
+                                }
+                            }
+                        } else {
+                            showModalErrorMessage('Data manager not available. Cannot import classes.');
+                        }
+                    } catch (error) {
+                        console.error('Error processing CSV file:', error);
+                        showModalErrorMessage('Error processing CSV file: ' + error.message);
+                    }
+                };
+                
+                reader.onerror = function() {
+                    showModalErrorMessage('Error reading the CSV file');
+                };
+                
+                reader.readAsText(file);
+            });
+        }
+        
+        // Trigger file selection dialog
+        fileInput.click();
+    } catch (error) {
+        console.error('Error in CSV import:', error);
+        showModalErrorMessage('Error importing CSV: ' + error.message);
+    }
+}
+
 // Function to refresh the class list without reopening the modal
 function refreshClassList(selectClassName = null) {
     try {
@@ -197,7 +288,11 @@ function showClassDetails(classInfo) {
     
     // Extract grade from class name
     let grade = 'PK';
-    if (classInfo.name.includes('-')) {
+    
+    // Check for mixed grade classes with commas (like "K, 1, 2-417" or "3, 4, 5-518")
+    if (classInfo.name.includes(',') && classInfo.name.includes('-')) {
+        grade = 'mixed';
+    } else if (classInfo.name.includes('-')) {
         const parts = classInfo.name.split('-');
         grade = parts[0].trim();
     } else if (classInfo.name.startsWith('PK')) {
@@ -332,9 +427,21 @@ document.getElementById('class-edit-form')?.addEventListener('submit', function(
     if (!className) {
         // Generate a name based on grade level and a number
         const existingClasses = window.dataManager?.getClasses() || [];
-        const gradeClasses = existingClasses.filter(c => c.name.startsWith(grade));
-        const classNumber = gradeClasses.length + 1;
-        className = `${grade}-${300 + classNumber}`;
+        
+        if (grade === 'mixed') {
+            // For mixed grade, generate a name like "K, 1, 2-XXX" or "3, 4, 5-XXX"
+            // Get a count of existing mixed grade classes to generate a number
+            const mixedClasses = existingClasses.filter(c => c.name.includes(',') && c.name.includes('-'));
+            const classNumber = mixedClasses.length + 1;
+            
+            // Default to "K, 1, 2" mix for new mixed classes - can be edited after creation
+            className = `K, 1, 2-${400 + classNumber}`;
+        } else {
+            // For regular single-grade classes
+            const gradeClasses = existingClasses.filter(c => c.name.startsWith(grade));
+            const classNumber = gradeClasses.length + 1;
+            className = `${grade}-${300 + classNumber}`;
+        }
     }
     
     // Build the conflicts object
@@ -460,4 +567,9 @@ document.getElementById('delete-class-btn')?.addEventListener('click', function(
             window.showMessage('success', `Class ${selectedClassName} deleted successfully`);
         }
     }
+});
+
+// Import CSV button handler
+document.getElementById('import-csv-btn')?.addEventListener('click', function() {
+    importCSVClasses();
 });

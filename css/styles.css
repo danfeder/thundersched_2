@@ -528,6 +528,19 @@ header {
     font-style: italic;
 }
 
+.button-group {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+}
+
+.button-group .btn {
+    width: auto;
+    flex: 1;
+    margin-bottom: 0;
+}
+
 /* Success indicators */
 .success-flash {
     background-color: #4caf50 !important;
