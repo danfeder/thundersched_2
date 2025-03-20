@@ -163,6 +163,10 @@
                         <button id="add-class-btn" class="btn">Add New Class</button>
                         <button id="import-csv-btn" class="btn btn-secondary" type="button">Import CSV</button>
                     </div>
+                    <div class="button-group class-collection-buttons">
+                        <button id="save-class-collection-btn" class="btn btn-secondary">Save Collection</button>
+                        <button id="load-class-collection-btn" class="btn btn-secondary">Load Collection</button>
+                    </div>
                 </div>
                 
                 <div class="class-editor">
@@ -319,6 +323,53 @@
                 <!-- Conflict details will be added here dynamically -->
             </div>
             <div id="conflict-actions" class="dialog-actions">
+                <!-- Action buttons will be added here dynamically -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- Save Class Collection Modal -->
+    <div id="save-class-collection-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Save Class Collection</h2>
+            <form id="save-class-collection-form">
+                <div class="form-group">
+                    <label for="class-collection-name">Collection Name*</label>
+                    <input type="text" id="class-collection-name" required>
+                </div>
+                <div class="form-group">
+                    <label for="class-collection-description">Description (optional)</label>
+                    <textarea id="class-collection-description"></textarea>
+                </div>
+                <div class="dialog-actions">
+                    <button type="submit" class="btn">Save</button>
+                    <button type="button" class="btn btn-secondary cancel-btn">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Load Class Collection Modal -->
+    <div id="load-class-collection-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Saved Class Collections</h2>
+            <div id="saved-class-collections-list" class="saved-schedules-container">
+                <!-- Saved class collections will be added here dynamically -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- Class Collection Conflict Resolution Modal -->
+    <div id="class-collection-conflict-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Class Differences Detected</h2>
+            <div id="class-collection-conflict-details">
+                <!-- Conflict details will be added here dynamically -->
+            </div>
+            <div id="class-collection-conflict-actions" class="dialog-actions">
                 <!-- Action buttons will be added here dynamically -->
             </div>
         </div>

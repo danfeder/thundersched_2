@@ -573,3 +573,478 @@ document.getElementById('delete-class-btn')?.addEventListener('click', function(
 document.getElementById('import-csv-btn')?.addEventListener('click', function() {
     importCSVClasses();
 });
+
+// Save Class Collection button handler
+document.getElementById('save-class-collection-btn')?.addEventListener('click', function() {
+    showSaveClassCollectionModal();
+});
+
+// Load Class Collection button handler
+document.getElementById('load-class-collection-btn')?.addEventListener('click', function() {
+    showLoadClassCollectionModal();
+});
+
+// Save Class Collection form submission handler
+document.getElementById('save-class-collection-form')?.addEventListener('submit', function(e) {
+    e.preventDefault();
+    handleSaveClassCollectionSubmit();
+});
+
+// Flag to prevent duplicate submissions
+let isSavingClassCollection = false;
+
+// Function to show the save class collection modal
+function showSaveClassCollectionModal() {
+    // Check if there are any classes to save
+    if (!window.dataManager || window.dataManager.getClasses().length === 0) {
+        if (window.showMessage) {
+            window.showMessage('error', 'No classes to save. Please add at least one class first.');
+        } else {
+            showModalErrorMessage('No classes to save. Please add at least one class first.');
+        }
+        return;
+    }
+    
+    // Reset form
+    const modal = document.getElementById('save-class-collection-modal');
+    const form = document.getElementById('save-class-collection-form');
+    form.reset();
+    
+    // Suggest a default name
+    document.getElementById('class-collection-name').value = 
+        "Class Collection " + (window.dataManager.savedClassCollections.length + 1);
+    
+    // Show modal
+    modal.style.display = 'block';
+    
+    // Focus on name field
+    document.getElementById('class-collection-name').focus();
+}
+
+// Function to handle save class collection form submission
+function handleSaveClassCollectionSubmit() {
+    // Prevent duplicate submissions
+    if (isSavingClassCollection) {
+        console.log('Already processing a save request');
+        return;
+    }
+    
+    isSavingClassCollection = true;
+    
+    const name = document.getElementById('class-collection-name').value.trim();
+    if (!name) {
+        showModalErrorMessage('Please enter a collection name.');
+        isSavingClassCollection = false;
+        return;
+    }
+    
+    // Check for duplicate names
+    const isDuplicateName = window.dataManager.savedClassCollections.some(collection => 
+        collection.name.toLowerCase() === name.toLowerCase()
+    );
+    
+    if (isDuplicateName) {
+        showModalErrorMessage(`A collection named "${name}" already exists. Please use a different name.`);
+        isSavingClassCollection = false;
+        return;
+    }
+    
+    const description = document.getElementById('class-collection-description').value.trim();
+    console.log('Saving class collection with name:', name, 'description:', description);
+    
+    // Create a unique ID
+    const id = Date.now().toString(36) + Math.random().toString(36).substr(2);
+    const timestamp = new Date().toISOString();
+    
+    // Create a deep copy of the classes
+    const savedCollection = {
+        id,
+        name,
+        description,
+        createdAt: timestamp,
+        lastModified: timestamp,
+        classData: JSON.parse(JSON.stringify(window.dataManager.classes))
+    };
+    
+    // Add to saved class collections
+    if (window.dataManager.addSavedClassCollection(savedCollection)) {
+        // Hide modal
+        document.getElementById('save-class-collection-modal').style.display = 'none';
+        
+        // Show success message
+        if (window.showMessage) {
+            window.showMessage('success', `Class collection "${name}" saved successfully.`);
+        } else {
+            showModalErrorMessage(`Class collection "${name}" saved successfully.`, 'success');
+        }
+    }
+    
+    // Reset the saving flag
+    isSavingClassCollection = false;
+}
+
+// Function to show the load class collection modal
+function showLoadClassCollectionModal() {
+    const modal = document.getElementById('load-class-collection-modal');
+    const listContainer = document.getElementById('saved-class-collections-list');
+    
+    // Debug log saved class collections
+    console.log('Showing load class collection modal. Saved collections:', window.dataManager.savedClassCollections);
+    
+    // Clear existing list
+    listContainer.innerHTML = '';
+    
+    if (!window.dataManager.savedClassCollections || window.dataManager.savedClassCollections.length === 0) {
+        console.log('No saved class collections found');
+        listContainer.innerHTML = '<div class="empty-message">No saved class collections found.</div>';
+    } else {
+        // Create list items for each saved class collection
+        window.dataManager.savedClassCollections.forEach(collection => {
+            const item = document.createElement('div');
+            item.className = 'saved-schedule-item';
+            
+            const dateOptions = { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+            const formattedDate = new Date(collection.createdAt).toLocaleDateString(undefined, dateOptions);
+            const formattedModified = collection.lastModified && collection.lastModified !== collection.createdAt ? 
+                new Date(collection.lastModified).toLocaleDateString(undefined, dateOptions) : null;
+            
+            item.innerHTML = `
+                <div class="schedule-info">
+                    <h3>${collection.name}</h3>
+                    <p class="schedule-date">Created: ${formattedDate}</p>
+                    ${formattedModified ? `<p class="schedule-modified">Modified: ${formattedModified}</p>` : ''}
+                    <p class="schedule-description">${collection.description || 'No description'}</p>
+                    <p class="schedule-stats">
+                        ${collection.classData.length} classes in this collection
+                    </p>
+                </div>
+                <div class="schedule-actions">
+                    <button class="btn btn-small preview-collection-btn" data-id="${collection.id}">Preview</button>
+                    <button class="btn btn-small load-collection-btn" data-id="${collection.id}">Load</button>
+                    <button class="btn btn-small btn-danger delete-collection-btn" data-id="${collection.id}">Delete</button>
+                </div>
+            `;
+            
+            listContainer.appendChild(item);
+        });
+        
+        // Add event listeners
+        document.querySelectorAll('.preview-collection-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const collectionId = e.target.dataset.id;
+                previewClassCollection(collectionId);
+            });
+        });
+        
+        document.querySelectorAll('.load-collection-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const collectionId = e.target.dataset.id;
+                modal.style.display = 'none';
+                loadClassCollection(collectionId);
+            });
+        });
+        
+        document.querySelectorAll('.delete-collection-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const collectionId = e.target.dataset.id;
+                if (confirm('Are you sure you want to delete this saved class collection? This cannot be undone.')) {
+                    deleteClassCollection(collectionId);
+                    // Re-render the list
+                    showLoadClassCollectionModal();
+                }
+            });
+        });
+    }
+    
+    modal.style.display = 'block';
+}
+
+// Function to preview a class collection
+function previewClassCollection(id) {
+    const collection = window.dataManager.getSavedClassCollectionById(id);
+    if (!collection) {
+        if (window.showMessage) {
+            window.showMessage('error', 'Could not find the saved class collection.');
+        } else {
+            showModalErrorMessage('Could not find the saved class collection.');
+        }
+        return;
+    }
+    
+    // For now, just show an alert with the collection details
+    // In a full implementation, this would show a modal with a detailed view
+    alert(`Preview of "${collection.name}"\n\nDescription: ${collection.description || 'None'}\n\nContains ${collection.classData.length} classes.`);
+}
+
+// Function to load a class collection
+function loadClassCollection(id) {
+    const collection = window.dataManager.getSavedClassCollectionById(id);
+    if (!collection) {
+        if (window.showMessage) {
+            window.showMessage('error', 'Could not find the saved class collection.');
+        } else {
+            showModalErrorMessage('Could not find the saved class collection.');
+        }
+        return;
+    }
+    
+    // Check if there are any existing classes
+    const hasExistingClasses = window.dataManager.getClasses().length > 0;
+    
+    // Check if any existing classes are scheduled
+    const hasScheduledClasses = hasExistingClasses && 
+                               window.dataManager.getClasses().some(classInfo => 
+                                   window.dataManager.isClassScheduled(classInfo.name));
+    
+    if (hasExistingClasses) {
+        // Show conflict resolution dialog if there are existing classes
+        showClassCollectionConflictDialog(collection, hasScheduledClasses);
+    } else {
+        // No existing classes, load directly
+        applyLoadedClassCollection(collection, 'replace');
+    }
+}
+
+// Function to delete a class collection
+function deleteClassCollection(id) {
+    const collection = window.dataManager.getSavedClassCollectionById(id);
+    if (!collection) return;
+    
+    const name = collection.name;
+    
+    if (window.dataManager.deleteSavedClassCollection(id)) {
+        if (window.showMessage) {
+            window.showMessage('success', `Class collection "${name}" deleted.`);
+        } else {
+            showModalErrorMessage(`Class collection "${name}" deleted.`, 'success');
+        }
+    } else {
+        if (window.showMessage) {
+            window.showMessage('error', `Failed to delete class collection "${name}". Please try again.`);
+        } else {
+            showModalErrorMessage(`Failed to delete class collection "${name}". Please try again.`);
+        }
+    }
+}
+
+// Function to show the conflict resolution dialog when loading a class collection
+function showClassCollectionConflictDialog(collection, hasScheduledClasses) {
+    const modal = document.getElementById('class-collection-conflict-modal');
+    const contentEl = document.getElementById('class-collection-conflict-details');
+    
+    // Build the content based on whether there are scheduled classes
+    let content = `
+        <p>You already have ${window.dataManager.getClasses().length} classes defined in your system.</p>
+    `;
+    
+    if (hasScheduledClasses) {
+        content += `
+            <div class="conflict-warning">
+                <p><strong>Warning:</strong> Some of your current classes are scheduled in the calendar. 
+                Replacing or modifying them could affect your current schedule.</p>
+            </div>
+        `;
+    }
+    
+    content += `
+        <h3>Options:</h3>
+        <p>How would you like to load this class collection?</p>
+    `;
+    
+    contentEl.innerHTML = content;
+    
+    // Set up action buttons
+    const actionsEl = document.getElementById('class-collection-conflict-actions');
+    actionsEl.innerHTML = '';
+    
+    // Full replace button
+    const replaceBtn = document.createElement('button');
+    replaceBtn.className = 'btn';
+    replaceBtn.textContent = 'Replace All Classes';
+    replaceBtn.addEventListener('click', () => {
+        modal.style.display = 'none';
+        applyLoadedClassCollection(collection, 'replace');
+    });
+    actionsEl.appendChild(replaceBtn);
+    
+    // Merge (add new only) button
+    const mergeBtn = document.createElement('button');
+    mergeBtn.className = 'btn';
+    mergeBtn.textContent = 'Add New Classes Only';
+    mergeBtn.addEventListener('click', () => {
+        modal.style.display = 'none';
+        applyLoadedClassCollection(collection, 'add_new');
+    });
+    actionsEl.appendChild(mergeBtn);
+    
+    // Smart merge button
+    const smartMergeBtn = document.createElement('button');
+    smartMergeBtn.className = 'btn';
+    smartMergeBtn.textContent = 'Smart Merge (Update Existing)';
+    smartMergeBtn.addEventListener('click', () => {
+        modal.style.display = 'none';
+        applyLoadedClassCollection(collection, 'smart_merge');
+    });
+    actionsEl.appendChild(smartMergeBtn);
+    
+    // Cancel button
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'btn btn-secondary';
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.addEventListener('click', () => {
+        modal.style.display = 'none';
+    });
+    actionsEl.appendChild(cancelBtn);
+    
+    modal.style.display = 'block';
+}
+
+// Function to apply a loaded class collection
+function applyLoadedClassCollection(collection, mode) {
+    try {
+        const currentClasses = window.dataManager.getClasses();
+        let newClasses = [];
+        let updateStats = {
+            added: 0,
+            updated: 0,
+            unchanged: 0,
+            total: collection.classData.length
+        };
+        
+        switch (mode) {
+            case 'replace':
+                // Complete replacement - use saved collection classes
+                newClasses = JSON.parse(JSON.stringify(collection.classData));
+                updateStats.added = newClasses.length;
+                break;
+                
+            case 'add_new':
+                // Keep current classes and only add new ones
+                newClasses = [...currentClasses];
+                
+                // Go through saved collection and add classes that don't exist
+                collection.classData.forEach(collectionClass => {
+                    const existingClass = currentClasses.find(c => c.name === collectionClass.name);
+                    if (!existingClass) {
+                        newClasses.push(JSON.parse(JSON.stringify(collectionClass)));
+                        updateStats.added++;
+                    } else {
+                        updateStats.unchanged++;
+                    }
+                });
+                break;
+                
+            case 'smart_merge':
+                // Keep current classes but update conflict periods for existing ones
+                newClasses = [];
+                
+                // Process current classes first
+                currentClasses.forEach(currentClass => {
+                    const collectionClass = collection.classData.find(c => c.name === currentClass.name);
+                    
+                    if (collectionClass) {
+                        // Class exists in both - merge conflicts
+                        const mergedClass = {
+                            name: currentClass.name,
+                            conflicts: JSON.parse(JSON.stringify(collectionClass.conflicts))
+                        };
+                        newClasses.push(mergedClass);
+                        updateStats.updated++;
+                    } else {
+                        // Class only exists in current - keep it
+                        newClasses.push(JSON.parse(JSON.stringify(currentClass)));
+                        updateStats.unchanged++;
+                    }
+                });
+                
+                // Now add any classes from collection that don't exist in current
+                collection.classData.forEach(collectionClass => {
+                    const existingClass = currentClasses.find(c => c.name === collectionClass.name);
+                    if (!existingClass) {
+                        newClasses.push(JSON.parse(JSON.stringify(collectionClass)));
+                        updateStats.added++;
+                    }
+                });
+                break;
+        }
+        
+        // Update the classes in dataManager
+        window.dataManager.classes = newClasses;
+        
+        // Save to localStorage
+        localStorage.setItem('cooking-classes', JSON.stringify(newClasses));
+        
+        // Refresh the class list
+        refreshClassList();
+        
+        // Update the unscheduled classes list and progress in the main app
+        if (window.renderUnscheduledClasses) {
+            window.renderUnscheduledClasses();
+            if (typeof window.updateProgress === 'function') {
+                window.updateProgress();
+            }
+        }
+        
+        // Show success message with stats
+        let message = `Successfully loaded "${collection.name}" with `;
+        if (updateStats.added > 0) message += `${updateStats.added} classes added`;
+        if (updateStats.updated > 0) {
+            if (updateStats.added > 0) message += `, `;
+            message += `${updateStats.updated} classes updated`;
+        }
+        if (updateStats.unchanged > 0 && mode !== 'replace') {
+            if (updateStats.added > 0 || updateStats.updated > 0) message += `, `;
+            message += `${updateStats.unchanged} classes unchanged`;
+        }
+        
+        if (window.showMessage) {
+            window.showMessage('success', message);
+        } else {
+            showModalErrorMessage(message, 'success');
+        }
+        
+    } catch (error) {
+        console.error('Error applying loaded class collection:', error);
+        if (window.showMessage) {
+            window.showMessage('error', 'Failed to load class collection due to an error. Please try again.');
+        } else {
+            showModalErrorMessage('Failed to load class collection due to an error. Please try again.');
+        }
+    }
+}
+
+// Helper function to show a modal message with a specified type (error or success)
+function showModalErrorMessage(message, type = 'error') {
+    // Check if there's already an error message container
+    let errorContainer = document.querySelector('.modal-error-message');
+    
+    if (!errorContainer) {
+        // Create a new error container if it doesn't exist
+        errorContainer = document.createElement('div');
+        errorContainer.className = 'modal-error-message';
+        
+        // Insert it at the top of the class editor
+        const classEditor = document.querySelector('.class-editor');
+        if (classEditor && classEditor.firstChild) {
+            classEditor.insertBefore(errorContainer, classEditor.firstChild);
+        } else {
+            // Fallback to append to modal content
+            const modalContent = document.querySelector('.class-manager-content');
+            if (modalContent) {
+                modalContent.appendChild(errorContainer);
+            }
+        }
+    }
+    
+    // Set appropriate class based on message type
+    errorContainer.className = `modal-error-message ${type === 'success' ? 'success' : 'error'}`;
+    
+    // Set the message
+    errorContainer.textContent = message;
+    errorContainer.style.display = 'block';
+    
+    // Hide the message after a few seconds
+    setTimeout(() => {
+        errorContainer.style.display = 'none';
+    }, 5000);
+}

@@ -27,6 +27,9 @@ class DataManager {
         // Add savedSchedules array
         this.savedSchedules = [];
         
+        // Add savedClassCollections array for storing sets of class definitions
+        this.savedClassCollections = [];
+        
         // Initialize empty schedule for first week
         this.initializeEmptyWeek(0);
         
@@ -34,6 +37,7 @@ class DataManager {
         this.loadClassesFromLocalStorage();
         this.loadConfigFromLocalStorage();
         this.loadSavedSchedulesFromLocalStorage();
+        this.loadSavedClassCollectionsFromLocalStorage();
         
         // Delayed validation of existing schedule against constraints (needs scheduler to be initialized)
         setTimeout(() => this.validateExistingScheduleAgainstConstraints(), 1000);
@@ -675,5 +679,82 @@ class DataManager {
         } else {
             alert(message);
         }
+    }
+    
+    // Class collection management methods
+    loadSavedClassCollectionsFromLocalStorage() {
+        try {
+            const storedCollections = localStorage.getItem('cooking-saved-class-collections');
+            console.log('Raw stored class collections from localStorage:', storedCollections);
+            
+            if (storedCollections) {
+                this.savedClassCollections = JSON.parse(storedCollections);
+                console.log(`Loaded ${this.savedClassCollections.length} saved class collections from localStorage:`, this.savedClassCollections);
+            } else {
+                console.log('No saved class collections found in localStorage');
+                this.savedClassCollections = [];
+            }
+        } catch (error) {
+            console.error('Error loading saved class collections from localStorage:', error);
+            this.savedClassCollections = []; // Initialize with empty array on error
+            // Show error notification to user if we have a message system
+            if (typeof showMessage === 'function') {
+                showMessage('error', 'There was an error loading your saved class collections. Some data may be lost.');
+            }
+        }
+    }
+    
+    saveSavedClassCollectionsToLocalStorage() {
+        try {
+            console.log('Saving class collections to localStorage:', this.savedClassCollections);
+            localStorage.setItem('cooking-saved-class-collections', JSON.stringify(this.savedClassCollections));
+            console.log('Successfully saved class collections to localStorage');
+            return true;
+        } catch (error) {
+            console.error('Error saving class collections to localStorage:', error);
+            // Check if it's a quota exceeded error
+            if (error instanceof DOMException && error.name === 'QuotaExceededError') {
+                this.showErrorMessage('Storage limit exceeded. Try deleting some saved class collections first.');
+            } else {
+                this.showErrorMessage('Failed to save class collection. An unexpected error occurred.');
+            }
+            return false;
+        }
+    }
+    
+    addSavedClassCollection(collection) {
+        // Add lastModified field if not present
+        if (!collection.lastModified) {
+            collection.lastModified = collection.createdAt;
+        }
+        
+        this.savedClassCollections.push(collection);
+        return this.saveSavedClassCollectionsToLocalStorage();
+    }
+    
+    updateSavedClassCollection(id, updates) {
+        const index = this.savedClassCollections.findIndex(c => c.id === id);
+        if (index !== -1) {
+            // Update lastModified timestamp
+            updates.lastModified = new Date().toISOString();
+            
+            // Apply updates to the collection
+            this.savedClassCollections[index] = {...this.savedClassCollections[index], ...updates};
+            return this.saveSavedClassCollectionsToLocalStorage();
+        }
+        return false;
+    }
+    
+    deleteSavedClassCollection(id) {
+        const index = this.savedClassCollections.findIndex(c => c.id === id);
+        if (index !== -1) {
+            this.savedClassCollections.splice(index, 1);
+            return this.saveSavedClassCollectionsToLocalStorage();
+        }
+        return false;
+    }
+    
+    getSavedClassCollectionById(id) {
+        return this.savedClassCollections.find(c => c.id === id);
     }
 }
