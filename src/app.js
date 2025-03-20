@@ -8,6 +8,30 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.dataManager = dataManager;
     window.scheduler = scheduler;
     
+    // Add debugging helper for console
+    window.debugScheduler = {
+        inspectSavedSchedules: function() {
+            console.log('Saved schedules in dataManager:', dataManager.savedSchedules);
+            
+            // Try to read directly from localStorage
+            try {
+                const raw = localStorage.getItem('cooking-saved-schedules');
+                console.log('Raw saved schedules from localStorage:', raw);
+                
+                if (raw) {
+                    const parsed = JSON.parse(raw);
+                    console.log('Parsed saved schedules from localStorage:', parsed);
+                } else {
+                    console.log('No saved schedules found in localStorage');
+                }
+            } catch (e) {
+                console.error('Error reading from localStorage:', e);
+            }
+            
+            return 'Check console for saved schedules information';
+        }
+    };
+    
     // Add helper methods for data persistence
     window.saveScheduleToLocalStorage = function() {
         localStorage.setItem('cooking-class-schedule', JSON.stringify(dataManager.scheduleWeeks));
@@ -51,6 +75,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('save-schedule-btn').addEventListener('click', showSaveScheduleModal);
     document.getElementById('load-schedule-btn').addEventListener('click', showLoadScheduleModal);
     
+    // This event listener was causing duplicate submissions
+    // See the setTimeout below that adds onsubmit handler
+    
     // Teacher mode toggle
     const teacherModeToggle = document.getElementById('teacher-mode');
     teacherModeToggle.addEventListener('change', toggleTeacherMode);
@@ -91,6 +118,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     });
     
+    // Cancel buttons in modals
+    document.querySelectorAll('.modal .cancel-btn').forEach(cancelBtn => {
+        cancelBtn.addEventListener('click', function() {
+            const modal = this.closest('.modal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        });
+    });
+    
     // Close modals when clicking outside
     window.addEventListener('click', (e) => {
         document.querySelectorAll('.modal').forEach(modal => {
@@ -99,6 +136,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
     });
+    
+    // Ensure save schedule form submission is working
+    // This is redundant but ensures the event listener is added
+    setTimeout(() => {
+        const saveForm = document.getElementById('save-schedule-form');
+        if (saveForm) {
+            saveForm.onsubmit = handleSaveScheduleSubmit;
+            console.log('Added onsubmit handler to save-schedule-form');
+        }
+    }, 1000);
     
     function initializeUI() {
         const scheduleGrid = document.getElementById('schedule-grid');
@@ -1088,16 +1135,30 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('schedule-name').focus();
     }
     
+    // Flag to prevent duplicate submissions
+    let isSavingSchedule = false;
+    
     function handleSaveScheduleSubmit(e) {
         e.preventDefault();
+        console.log('Save schedule form submitted');
+        
+        // Prevent duplicate submissions
+        if (isSavingSchedule) {
+            console.log('Already processing a save request');
+            return;
+        }
+        
+        isSavingSchedule = true;
         
         const name = document.getElementById('schedule-name').value.trim();
         if (!name) {
             showMessage('error', 'Please enter a schedule name.');
+            isSavingSchedule = false;
             return;
         }
         
         const description = document.getElementById('schedule-description').value.trim();
+        console.log('Saving schedule with name:', name, 'description:', description);
         
         // Create a unique ID
         const id = Date.now().toString(36) + Math.random().toString(36).substr(2);
@@ -1123,16 +1184,23 @@ document.addEventListener('DOMContentLoaded', async () => {
             
             showMessage('success', `Schedule "${name}" saved successfully.`);
         }
+        
+        // Reset the saving flag
+        isSavingSchedule = false;
     }
     
     function showLoadScheduleModal() {
         const modal = document.getElementById('load-schedule-modal');
         const listContainer = document.getElementById('saved-schedules-list');
         
+        // Debug log saved schedules
+        console.log('Showing load schedule modal. Saved schedules:', dataManager.savedSchedules);
+        
         // Clear existing list
         listContainer.innerHTML = '';
         
-        if (dataManager.savedSchedules.length === 0) {
+        if (!dataManager.savedSchedules || dataManager.savedSchedules.length === 0) {
+            console.log('No saved schedules found');
             listContainer.innerHTML = '<div class="empty-message">No saved schedules found.</div>';
         } else {
             // Calculate a "fingerprint" for the current schedule to identify if any saved schedules match

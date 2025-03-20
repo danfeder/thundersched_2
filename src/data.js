@@ -595,9 +595,14 @@ class DataManager {
     loadSavedSchedulesFromLocalStorage() {
         try {
             const storedSchedules = localStorage.getItem('cooking-saved-schedules');
+            console.log('Raw stored schedules from localStorage:', storedSchedules);
+            
             if (storedSchedules) {
                 this.savedSchedules = JSON.parse(storedSchedules);
-                console.log(`Loaded ${this.savedSchedules.length} saved schedules from localStorage`);
+                console.log(`Loaded ${this.savedSchedules.length} saved schedules from localStorage:`, this.savedSchedules);
+            } else {
+                console.log('No saved schedules found in localStorage');
+                this.savedSchedules = [];
             }
         } catch (error) {
             console.error('Error loading saved schedules from localStorage:', error);
@@ -611,7 +616,9 @@ class DataManager {
     
     saveSavedSchedulesToLocalStorage() {
         try {
+            console.log('Saving schedules to localStorage:', this.savedSchedules);
             localStorage.setItem('cooking-saved-schedules', JSON.stringify(this.savedSchedules));
+            console.log('Successfully saved schedules to localStorage');
             return true;
         } catch (error) {
             console.error('Error saving schedules to localStorage:', error);
