@@ -24,12 +24,16 @@ class DataManager {
             maxClassesPerWeek: 16
         };
         
+        // Add savedSchedules array
+        this.savedSchedules = [];
+        
         // Initialize empty schedule for first week
         this.initializeEmptyWeek(0);
         
-        // Try to load classes and configuration from localStorage during initialization
+        // Try to load data from localStorage during initialization
         this.loadClassesFromLocalStorage();
         this.loadConfigFromLocalStorage();
+        this.loadSavedSchedulesFromLocalStorage();
         
         // Delayed validation of existing schedule against constraints (needs scheduler to be initialized)
         setTimeout(() => this.validateExistingScheduleAgainstConstraints(), 1000);
@@ -584,6 +588,85 @@ class DataManager {
                 console.warn(`Found ${invalidPlacements.length} placement(s) that violate current constraints`);
                 // We don't auto-remove them, but could notify the user in the UI
             }
+        }
+    }
+    
+    // Saved schedules management methods
+    loadSavedSchedulesFromLocalStorage() {
+        try {
+            const storedSchedules = localStorage.getItem('cooking-saved-schedules');
+            if (storedSchedules) {
+                this.savedSchedules = JSON.parse(storedSchedules);
+                console.log(`Loaded ${this.savedSchedules.length} saved schedules from localStorage`);
+            }
+        } catch (error) {
+            console.error('Error loading saved schedules from localStorage:', error);
+            this.savedSchedules = []; // Initialize with empty array on error
+            // Show error notification to user if we have a message system
+            if (typeof showMessage === 'function') {
+                showMessage('error', 'There was an error loading your saved schedules. Some data may be lost.');
+            }
+        }
+    }
+    
+    saveSavedSchedulesToLocalStorage() {
+        try {
+            localStorage.setItem('cooking-saved-schedules', JSON.stringify(this.savedSchedules));
+            return true;
+        } catch (error) {
+            console.error('Error saving schedules to localStorage:', error);
+            // Check if it's a quota exceeded error
+            if (error instanceof DOMException && error.name === 'QuotaExceededError') {
+                this.showErrorMessage('Storage limit exceeded. Try deleting some saved schedules first.');
+            } else {
+                this.showErrorMessage('Failed to save schedule. An unexpected error occurred.');
+            }
+            return false;
+        }
+    }
+    
+    addSavedSchedule(schedule) {
+        // Add lastModified field if not present
+        if (!schedule.lastModified) {
+            schedule.lastModified = schedule.createdAt;
+        }
+        
+        this.savedSchedules.push(schedule);
+        return this.saveSavedSchedulesToLocalStorage();
+    }
+    
+    updateSavedSchedule(id, updates) {
+        const index = this.savedSchedules.findIndex(s => s.id === id);
+        if (index !== -1) {
+            // Update lastModified timestamp
+            updates.lastModified = new Date().toISOString();
+            
+            // Apply updates to the schedule
+            this.savedSchedules[index] = {...this.savedSchedules[index], ...updates};
+            return this.saveSavedSchedulesToLocalStorage();
+        }
+        return false;
+    }
+    
+    deleteSavedSchedule(id) {
+        const index = this.savedSchedules.findIndex(s => s.id === id);
+        if (index !== -1) {
+            this.savedSchedules.splice(index, 1);
+            return this.saveSavedSchedulesToLocalStorage();
+        }
+        return false;
+    }
+    
+    getSavedScheduleById(id) {
+        return this.savedSchedules.find(s => s.id === id);
+    }
+    
+    showErrorMessage(message) {
+        // Implementation depends on the application's message system
+        if (typeof showMessage === 'function') {
+            showMessage('error', message);
+        } else {
+            alert(message);
         }
     }
 }

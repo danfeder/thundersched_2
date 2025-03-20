@@ -22,6 +22,10 @@
                     <button id="config-btn" class="btn btn-secondary">Configure Constraints</button>
                     <button id="export-btn" class="btn btn-secondary">Export Schedule</button>
                     <button id="manage-classes-btn" class="btn btn-secondary" onclick="window.openClassManager()">Manage Classes</button>
+                    <div class="btn-group schedule-management">
+                        <button id="save-schedule-btn" class="btn btn-secondary">Save Schedule</button>
+                        <button id="load-schedule-btn" class="btn btn-secondary">Load Schedule</button>
+                    </div>
                     <div class="teacher-mode-toggle">
                         <input type="checkbox" id="teacher-mode" class="toggle-checkbox">
                         <label for="teacher-mode" class="toggle-label">Teacher Mode</label>
@@ -113,6 +117,21 @@
                 <li><strong>Removing Unavailability:</strong> Click again on a marked slot to make it available again</li>
                 <li><strong>Visual Indicators:</strong> Unavailable slots are shown with a yellow background and X mark</li>
                 <li><strong>Impact on Scheduling:</strong> Classes cannot be scheduled in periods marked as teacher unavailable</li>
+            </ul>
+            
+            <h3>Schedule Management</h3>
+            <ul>
+                <li><strong>Saving Schedules:</strong> Click "Save Schedule" to create a named snapshot of your current schedule</li>
+                <li><strong>Loading Schedules:</strong> Click "Load Schedule" to view and load previously saved schedules</li>
+                <li><strong>Previewing Schedules:</strong> Click "Preview" to view schedule details before loading</li>
+                <li><strong>Current Schedule Indicator:</strong> The currently loaded schedule is highlighted and labeled in the list</li>
+                <li><strong>Handling Class Changes:</strong> When loading a schedule with class differences, you can:
+                    <ul>
+                        <li><em>Full Restore:</em> Use class definitions exactly as they were when saved</li>
+                        <li><em>Adapt to Current Classes:</em> Keep current class definitions but load compatible placements</li>
+                    </ul>
+                </li>
+                <li><strong>Managing Saved Schedules:</strong> Use the Load Schedule dialog to view, preview, and delete saved schedules</li>
             </ul>
             
             <h3>Class Manager</h3>
@@ -239,6 +258,68 @@
             <div id="confirm-details"></div>
             <div class="dialog-actions" id="confirm-buttons">
                 <!-- Buttons will be added dynamically -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- Save Schedule Modal -->
+    <div id="save-schedule-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Save Schedule</h2>
+            <form id="save-schedule-form">
+                <div class="form-group">
+                    <label for="schedule-name">Schedule Name*</label>
+                    <input type="text" id="schedule-name" required>
+                </div>
+                <div class="form-group">
+                    <label for="schedule-description">Description (optional)</label>
+                    <textarea id="schedule-description"></textarea>
+                </div>
+                <div class="dialog-actions">
+                    <button type="submit" class="btn">Save</button>
+                    <button type="button" class="btn btn-secondary cancel-btn">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Load Schedule Modal -->
+    <div id="load-schedule-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Saved Schedules</h2>
+            <div id="saved-schedules-list" class="saved-schedules-container">
+                <!-- Saved schedules will be added here dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Preview Schedule Modal -->
+    <div id="preview-schedule-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Schedule Preview</h2>
+            <div id="preview-content">
+                <!-- Preview content will be added here dynamically -->
+            </div>
+            <div class="dialog-actions">
+                <button id="load-preview-btn" class="btn">Load This Schedule</button>
+                <button class="btn btn-secondary cancel-btn">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Conflict Resolution Modal -->
+    <div id="conflict-resolution-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Class Conflicts Detected</h2>
+            <div id="conflict-details">
+                <!-- Conflict details will be added here dynamically -->
+            </div>
+            <div id="conflict-actions" class="dialog-actions">
+                <!-- Action buttons will be added here dynamically -->
             </div>
         </div>
     </div>
