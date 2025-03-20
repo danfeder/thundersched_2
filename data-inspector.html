@@ -96,6 +96,7 @@
         <div class="data-section">
             <h2>Schedule Data</h2>
             <button class="control-button refresh-button" onclick="refreshScheduleData()">Refresh Schedule Data</button>
+            <button class="control-button" style="background-color: #ff9800;" onclick="forceReloadFromLocalStorage()">Force Reload from LocalStorage</button>
             <div id="schedule-data-view"></div>
             
             <h3>Schedule Table</h3>
@@ -217,6 +218,63 @@
                 console.error('Error loading data from localStorage:', error);
             }
         }
+        
+        function forceReloadFromLocalStorage() {
+            try {
+                // Reload the DataManager
+                dataManager = new DataManager();
+                
+                // Force load schedule data from localStorage
+                const rawScheduleData = localStorage.getItem('cooking-class-schedule');
+                console.log("Raw schedule data from localStorage:", rawScheduleData);
+                
+                if (rawScheduleData) {
+                    const parsedData = JSON.parse(rawScheduleData);
+                    
+                    // Directly set the scheduleWeeks property
+                    dataManager.scheduleWeeks = parsedData;
+                    
+                    console.log("Schedule data loaded directly:", dataManager.scheduleWeeks);
+                    
+                    // Force refresh the UI
+                    refreshScheduleData();
+                    refreshScheduleTable();
+                    
+                    showMessage("Schedule data reloaded from localStorage");
+                } else {
+                    showMessage("No schedule data found in localStorage");
+                }
+            } catch (error) {
+                console.error("Error reloading from localStorage:", error);
+                showMessage("Error reloading data: " + error.message);
+            }
+        }
+        
+        function showMessage(message) {
+            // Create a message element if it doesn't exist
+            let messageEl = document.getElementById('message-box');
+            if (!messageEl) {
+                messageEl = document.createElement('div');
+                messageEl.id = 'message-box';
+                messageEl.style.position = 'fixed';
+                messageEl.style.bottom = '10px';
+                messageEl.style.right = '10px';
+                messageEl.style.backgroundColor = '#333';
+                messageEl.style.color = 'white';
+                messageEl.style.padding = '10px';
+                messageEl.style.borderRadius = '5px';
+                messageEl.style.zIndex = '1000';
+                document.body.appendChild(messageEl);
+            }
+            
+            messageEl.textContent = message;
+            messageEl.style.display = 'block';
+            
+            // Hide after 3 seconds
+            setTimeout(() => {
+                messageEl.style.display = 'none';
+            }, 3000);
+        }
 
         function refreshClassesData() {
             const classesData = dataManager.getClasses();
@@ -265,7 +323,14 @@
         }
 
         function refreshScheduleData() {
+            // Get raw data from localStorage first, so we can see the exact structure
+            const rawScheduleData = localStorage.getItem('cooking-class-schedule');
+            console.log("Raw schedule data from localStorage:", rawScheduleData);
+            
+            // Then get the processed data from DataManager
             const scheduleData = dataManager.scheduleWeeks;
+            console.log("Processed schedule data from DataManager:", scheduleData);
+            
             document.getElementById('schedule-data-view').textContent = JSON.stringify(scheduleData, null, 2);
             refreshScheduleTable();
         }
@@ -308,11 +373,30 @@
         
         function getScheduledClass(weekOffset, dateStr, period) {
             const scheduleData = dataManager.scheduleWeeks;
-            if (scheduleData[weekOffset] && 
-                scheduleData[weekOffset][dateStr] && 
-                scheduleData[weekOffset][dateStr][period]) {
-                return scheduleData[weekOffset][dateStr][period];
+            
+            console.log("Looking for schedule data:", {
+                weekOffset: weekOffset,
+                dateStr: dateStr,
+                period: period,
+                scheduleData: scheduleData
+            });
+            
+            // Check if there's any data for this week
+            if (scheduleData[weekOffset]) {
+                console.log("Week data found:", scheduleData[weekOffset]);
+                
+                // Check if there's any data for this date
+                if (scheduleData[weekOffset][dateStr]) {
+                    console.log("Date data found:", scheduleData[weekOffset][dateStr]);
+                    
+                    // Check if there's any data for this period
+                    if (scheduleData[weekOffset][dateStr][period]) {
+                        console.log("Class found:", scheduleData[weekOffset][dateStr][period]);
+                        return scheduleData[weekOffset][dateStr][period];
+                    }
+                }
             }
+            
             return null;
         }
 
