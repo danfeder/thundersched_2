@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cooking Class Scheduler - Data Inspector</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #ddd;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #444;
+            margin-top: 30px;
+        }
+        .data-section {
+            margin-bottom: 30px;
+            border: 1px solid #ddd;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .data-view {
+            margin: 10px 0;
+            padding: 15px;
+            background-color: #f5f5f5;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+        .control-button {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 8px 16px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 14px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        .refresh-button {
+            background-color: #2196F3;
+        }
+        .clear-button {
+            background-color: #f44336;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        tr:hover {
+            background-color: #f5f5f5;
+        }
+        .conflict-cell {
+            background-color: #ffcccc;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Cooking Class Scheduler Data Inspector</h1>
+        <p>This tool helps examine the current state of application data for debugging purposes.</p>
+
+        <div class="data-section">
+            <h2>Classes Data</h2>
+            <button class="control-button refresh-button" onclick="refreshClassesData()">Refresh Classes Data</button>
+            <div id="classes-data-view"></div>
+            
+            <h3>Class Conflicts Table</h3>
+            <div id="conflict-table-container"></div>
+        </div>
+
+        <div class="data-section">
+            <h2>Schedule Data</h2>
+            <button class="control-button refresh-button" onclick="refreshScheduleData()">Refresh Schedule Data</button>
+            <div id="schedule-data-view"></div>
+            
+            <h3>Schedule Table</h3>
+            <label for="week-offset-select">Week:</label>
+            <select id="week-offset-select" onchange="refreshScheduleTable()">
+                <option value="-4">-4 Weeks</option>
+                <option value="-3">-3 Weeks</option>
+                <option value="-2">-2 Weeks</option>
+                <option value="-1">-1 Week</option>
+                <option value="0" selected>Current Week</option>
+                <option value="1">+1 Week</option>
+                <option value="2">+2 Weeks</option>
+                <option value="3">+3 Weeks</option>
+                <option value="4">+4 Weeks</option>
+            </select>
+            <div id="schedule-table-container"></div>
+        </div>
+
+        <div class="data-section">
+            <h2>Teacher Unavailability Data</h2>
+            <button class="control-button refresh-button" onclick="refreshTeacherData()">Refresh Teacher Data</button>
+            <div id="teacher-data-view"></div>
+            
+            <h3>Teacher Unavailability Table</h3>
+            <label for="teacher-week-select">Week:</label>
+            <select id="teacher-week-select" onchange="refreshTeacherTable()">
+                <option value="-4">-4 Weeks</option>
+                <option value="-3">-3 Weeks</option>
+                <option value="-2">-2 Weeks</option>
+                <option value="-1">-1 Week</option>
+                <option value="0" selected>Current Week</option>
+                <option value="1">+1 Week</option>
+                <option value="2">+2 Weeks</option>
+                <option value="3">+3 Weeks</option>
+                <option value="4">+4 Weeks</option>
+            </select>
+            <div id="teacher-table-container"></div>
+        </div>
+
+        <div class="data-section">
+            <h2>Local Storage Management</h2>
+            <button class="control-button clear-button" onclick="clearLocalStorage()">Clear Local Storage</button>
+            <div id="storage-info"></div>
+        </div>
+    </div>
+
+    <script src="src/data.js"></script>
+    <script src="src/scheduler.js"></script>
+    <script>
+        // Initialize the page
+        document.addEventListener('DOMContentLoaded', function() {
+            refreshClassesData();
+            refreshScheduleData();
+            refreshTeacherData();
+            updateStorageInfo();
+        });
+
+        function refreshClassesData() {
+            const classesData = window.getClasses();
+            document.getElementById('classes-data-view').textContent = JSON.stringify(classesData, null, 2);
+            renderConflictsTable(classesData);
+        }
+
+        function renderConflictsTable(classesData) {
+            const container = document.getElementById('conflict-table-container');
+            const weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+            
+            let html = '<table>';
+            // Header row
+            html += '<tr><th>Class</th>';
+            weekdays.forEach(day => {
+                for (let period = 1; period <= 8; period++) {
+                    html += `<th>${day.charAt(0)}${period}</th>`;
+                }
+            });
+            html += '</tr>';
+            
+            // Data rows
+            classesData.forEach(classData => {
+                html += `<tr><td>${classData.name}</td>`;
+                
+                for (let weekday = 0; weekday < 5; weekday++) {
+                    for (let period = 1; period <= 8; period++) {
+                        const hasConflict = classData.conflicts && 
+                                           classData.conflicts[weekday] && 
+                                           classData.conflicts[weekday].includes(period);
+                        
+                        if (hasConflict) {
+                            html += `<td class="conflict-cell">X</td>`;
+                        } else {
+                            html += `<td></td>`;
+                        }
+                    }
+                }
+                
+                html += '</tr>';
+            });
+            
+            html += '</table>';
+            container.innerHTML = html;
+        }
+
+        function refreshScheduleData() {
+            const scheduleData = window.getScheduleData();
+            document.getElementById('schedule-data-view').textContent = JSON.stringify(scheduleData, null, 2);
+            refreshScheduleTable();
+        }
+
+        function refreshScheduleTable() {
+            const weekOffset = parseInt(document.getElementById('week-offset-select').value);
+            const container = document.getElementById('schedule-table-container');
+            const weekDates = window.getWeekDates(weekOffset);
+            
+            // Format date strings
+            const dateStrings = [];
+            for (let i = 0; i < 5; i++) {
+                const date = new Date(weekDates.startDate);
+                date.setDate(date.getDate() + i);
+                dateStrings.push(window.formatDate(date));
+            }
+            
+            let html = '<table>';
+            // Header row with dates
+            html += '<tr><th>Period</th>';
+            dateStrings.forEach(dateStr => {
+                html += `<th>${dateStr}</th>`;
+            });
+            html += '</tr>';
+            
+            // Data rows
+            for (let period = 1; period <= 8; period++) {
+                html += `<tr><td>${period}</td>`;
+                
+                dateStrings.forEach(dateStr => {
+                    const className = getScheduledClass(weekOffset, dateStr, period);
+                    html += `<td>${className || ''}</td>`;
+                });
+                
+                html += '</tr>';
+            }
+            
+            html += '</table>';
+            container.innerHTML = html;
+        }
+        
+        function getScheduledClass(weekOffset, dateStr, period) {
+            const scheduleData = window.getScheduleData();
+            if (scheduleData[weekOffset] && 
+                scheduleData[weekOffset][dateStr] && 
+                scheduleData[weekOffset][dateStr][period]) {
+                return scheduleData[weekOffset][dateStr][period];
+            }
+            return null;
+        }
+
+        function refreshTeacherData() {
+            const teacherData = window.getTeacherUnavailabilityData();
+            document.getElementById('teacher-data-view').textContent = JSON.stringify(teacherData, null, 2);
+            refreshTeacherTable();
+        }
+
+        function refreshTeacherTable() {
+            const weekOffset = parseInt(document.getElementById('teacher-week-select').value);
+            const container = document.getElementById('teacher-table-container');
+            const weekDates = window.getWeekDates(weekOffset);
+            
+            // Format date strings
+            const dateStrings = [];
+            for (let i = 0; i < 5; i++) {
+                const date = new Date(weekDates.startDate);
+                date.setDate(date.getDate() + i);
+                dateStrings.push(window.formatDate(date));
+            }
+            
+            let html = '<table>';
+            // Header row with dates
+            html += '<tr><th>Period</th>';
+            dateStrings.forEach(dateStr => {
+                html += `<th>${dateStr}</th>`;
+            });
+            html += '</tr>';
+            
+            // Data rows
+            for (let period = 1; period <= 8; period++) {
+                html += `<tr><td>${period}</td>`;
+                
+                dateStrings.forEach(dateStr => {
+                    const isUnavailable = isTeacherUnavailableForDate(weekOffset, dateStr, period);
+                    html += isUnavailable ? 
+                        '<td class="conflict-cell">Unavailable</td>' : 
+                        '<td></td>';
+                });
+                
+                html += '</tr>';
+            }
+            
+            html += '</table>';
+            container.innerHTML = html;
+        }
+        
+        function isTeacherUnavailableForDate(weekOffset, dateStr, period) {
+            const teacherData = window.getTeacherUnavailabilityData();
+            if (teacherData[weekOffset] && 
+                teacherData[weekOffset][dateStr] && 
+                teacherData[weekOffset][dateStr][period]) {
+                return true;
+            }
+            return false;
+        }
+
+        function clearLocalStorage() {
+            if (confirm('Are you sure you want to clear all scheduler data? This action cannot be undone.')) {
+                localStorage.removeItem('cooking-class-schedule');
+                localStorage.removeItem('cooking-classes');
+                localStorage.removeItem('teacher-unavailability');
+                alert('Local storage cleared successfully.');
+                updateStorageInfo();
+                
+                // Refresh all data views
+                refreshClassesData();
+                refreshScheduleData();
+                refreshTeacherData();
+            }
+        }
+        
+        function updateStorageInfo() {
+            const container = document.getElementById('storage-info');
+            const scheduleSize = localStorage.getItem('cooking-class-schedule') ? 
+                (localStorage.getItem('cooking-class-schedule').length / 1024).toFixed(2) + ' KB' : 
+                'Not found';
+                
+            const classesSize = localStorage.getItem('cooking-classes') ? 
+                (localStorage.getItem('cooking-classes').length / 1024).toFixed(2) + ' KB' : 
+                'Not found';
+                
+            const teacherSize = localStorage.getItem('teacher-unavailability') ? 
+                (localStorage.getItem('teacher-unavailability').length / 1024).toFixed(2) + ' KB' : 
+                'Not found';
+                
+            container.innerHTML = `
+                <p><strong>Local Storage Items:</strong></p>
+                <ul>
+                    <li>cooking-class-schedule: ${scheduleSize}</li>
+                    <li>cooking-classes: ${classesSize}</li>
+                    <li>teacher-unavailability: ${teacherSize}</li>
+                </ul>
+            `;
+        }
+    </script>
+</body>
+</html>

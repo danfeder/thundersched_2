@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cooking Class Scheduler - Test Runner</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #ddd;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #444;
+            margin-top: 30px;
+        }
+        .test-section {
+            margin-bottom: 30px;
+            border: 1px solid #ddd;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .test-button {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 8px 16px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 14px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        .test-result {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f5f5f5;
+            border-left: 4px solid #ddd;
+            display: none;
+        }
+        .success {
+            border-left-color: #4CAF50;
+        }
+        .failure {
+            border-left-color: #f44336;
+        }
+        .test-input {
+            display: block;
+            margin: 8px 0;
+            padding: 8px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Cooking Class Scheduler Test Runner</h1>
+        <p>This page allows direct testing of individual functions from the scheduler application.</p>
+        <button onclick="resetTestData()" class="test-button" style="background-color: #f44336;">Reset Test Data</button>
+
+        <div class="test-section">
+            <h2>Date Functions</h2>
+            
+            <div>
+                <label for="date-input">Test Date (YYYY-MM-DD):</label>
+                <input type="date" id="date-input" class="test-input" value="">
+                <button class="test-button" onclick="testFormatDate()">Test formatDate()</button>
+                <div id="format-date-result" class="test-result"></div>
+            </div>
+
+            <div>
+                <button class="test-button" onclick="testGetCurrentWeekDates()">Test getCurrentWeekDates()</button>
+                <div id="current-week-dates-result" class="test-result"></div>
+            </div>
+
+            <div>
+                <label for="week-offset">Week Offset:</label>
+                <input type="number" id="week-offset" class="test-input" value="0">
+                <button class="test-button" onclick="testGetWeekDates()">Test getWeekDates()</button>
+                <div id="week-dates-result" class="test-result"></div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>Class Conflict Functions</h2>
+            
+            <div>
+                <label for="class-name">Class Name:</label>
+                <input type="text" id="class-name" class="test-input" value="PK101">
+                <label for="weekday">Weekday (0-6):</label>
+                <input type="number" id="weekday" class="test-input" min="0" max="6" value="1">
+                <label for="period">Period (1-8):</label>
+                <input type="number" id="period" class="test-input" min="1" max="8" value="3">
+                <button class="test-button" onclick="testHasConflict()">Test hasConflict()</button>
+                <div id="has-conflict-result" class="test-result"></div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>Teacher Availability Functions</h2>
+            
+            <div>
+                <label for="test-date">Date (YYYY-MM-DD):</label>
+                <input type="date" id="test-date" class="test-input" value="">
+                <label for="test-period">Period (1-8):</label>
+                <input type="number" id="test-period" class="test-input" min="1" max="8" value="3">
+                <button class="test-button" onclick="testIsTeacherUnavailable()">Test isTeacherUnavailable()</button>
+                <div id="is-teacher-unavailable-result" class="test-result"></div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>Schedule Validation Functions</h2>
+            
+            <div>
+                <label for="validate-date">Date (YYYY-MM-DD):</label>
+                <input type="date" id="validate-date" class="test-input" value="">
+                <label for="validate-period">Period (1-8):</label>
+                <input type="number" id="validate-period" class="test-input" min="1" max="8" value="3">
+                <label for="validate-class">Class Name:</label>
+                <input type="text" id="validate-class" class="test-input" value="PK101">
+                <button class="test-button" onclick="testIsValidPlacement()">Test isValidPlacement()</button>
+                <div id="is-valid-placement-result" class="test-result"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="src/data.js"></script>
+    <script src="src/scheduler.js"></script>
+    <script>
+        function resetTestData() {
+            // Reset the test data by recreating the instances
+            window.testDataManager = new DataManager();
+            window.testScheduler = new Scheduler(window.testDataManager);
+            
+            // Add some test classes with conflicts
+            const testClasses = [
+                {
+                    name: "PK101",
+                    conflicts: {
+                        "Monday": [1, 2],
+                        "Wednesday": [5, 6, 7, 8],
+                        "Friday": [3, 4]
+                    }
+                },
+                {
+                    name: "K101",
+                    conflicts: {
+                        "Monday": [5, 6],
+                        "Wednesday": [1, 2],
+                        "Friday": [7, 8]
+                    }
+                }
+            ];
+            
+            // Set classes directly
+            window.testDataManager.classes = testClasses;
+            
+            // Reset any result displays
+            document.querySelectorAll('.test-result').forEach(element => {
+                element.style.display = 'none';
+            });
+            
+            alert('Test data has been reset');
+        }
+        // Set default date values and initialize test data
+        document.addEventListener('DOMContentLoaded', function() {
+            const today = new Date();
+            const formattedDate = today.toISOString().substring(0, 10);
+            document.getElementById('date-input').value = formattedDate;
+            document.getElementById('test-date').value = formattedDate;
+            document.getElementById('validate-date').value = formattedDate;
+            
+            // Initialize test data
+            if (!window.testDataManager) {
+                window.testDataManager = new DataManager();
+                
+                // Add some test classes with conflicts
+                const testClasses = [
+                    {
+                        name: "PK101",
+                        conflicts: {
+                            "Monday": [1, 2],
+                            "Wednesday": [5, 6, 7, 8],
+                            "Friday": [3, 4]
+                        }
+                    },
+                    {
+                        name: "K101",
+                        conflicts: {
+                            "Monday": [5, 6],
+                            "Wednesday": [1, 2],
+                            "Friday": [7, 8]
+                        }
+                    }
+                ];
+                
+                // Set classes directly
+                window.testDataManager.classes = testClasses;
+                
+                // Create a scheduler
+                window.testScheduler = new Scheduler(window.testDataManager);
+            }
+        });
+
+        function showResult(elementId, message, isSuccess) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = message;
+            element.style.display = 'block';
+            element.className = 'test-result ' + (isSuccess ? 'success' : 'failure');
+        }
+
+        function testFormatDate() {
+            try {
+                const dateInput = document.getElementById('date-input').value;
+                const date = new Date(dateInput);
+                // Create a DataManager instance to use getFormattedDate
+                if (!window.testDataManager) {
+                    window.testDataManager = new DataManager();
+                }
+                const formatted = window.testDataManager.getFormattedDate(date);
+                showResult('format-date-result', `Result: ${formatted}`, true);
+            } catch (error) {
+                showResult('format-date-result', `Error: ${error.message}`, false);
+            }
+        }
+
+        function testGetCurrentWeekDates() {
+            try {
+                // Create a DataManager instance if needed
+                if (!window.testDataManager) {
+                    window.testDataManager = new DataManager();
+                }
+                
+                // Get the raw input value from the date field
+                const dateInputEl = document.getElementById('date-input');
+                const dateInputValue = dateInputEl.value;
+                
+                // Log the data for debugging
+                console.log("Raw input value:", dateInputValue);
+                
+                // Parse the date properly
+                const dateParts = dateInputValue.split('-');
+                const year = parseInt(dateParts[0]);
+                const month = parseInt(dateParts[1]) - 1; // Months are 0-indexed in JS
+                const day = parseInt(dateParts[2]);
+                
+                console.log("Date components:", year, month, day);
+                
+                // Create a clean date object 
+                const inputDateForDisplay = new Date(year, month, day);
+                
+                console.log("Display date object:", inputDateForDisplay.toDateString());
+                
+                // Create a separate date object for the data manager
+                const dataManagerDate = new Date(year, month, day);
+                
+                // Set the start date in the data manager
+                window.testDataManager.setStartDate(dataManagerDate);
+                
+                // Now get the current week dates based on this input
+                const dates = window.testDataManager.getCurrentWeekDates();
+                const firstDate = dates[0];
+                const lastDate = dates[dates.length - 1];
+                
+                const display = `Input date: ${inputDateForDisplay.toDateString()} (${year}-${(month+1).toString().padStart(2, '0')}-${day.toString().padStart(2, '0')})<br>
+                                Week start date: ${firstDate.toDateString()}<br>
+                                Week end date: ${lastDate.toDateString()}`;
+                showResult('current-week-dates-result', display, true);
+            } catch (error) {
+                showResult('current-week-dates-result', `Error: ${error.message}`, false);
+            }
+        }
+
+        function testGetWeekDates() {
+            try {
+                const weekOffset = parseInt(document.getElementById('week-offset').value);
+                
+                // Create a DataManager instance if needed
+                if (!window.testDataManager) {
+                    window.testDataManager = new DataManager();
+                }
+                
+                // Get the raw input value from the date field
+                const dateInputEl = document.getElementById('date-input');
+                const dateInputValue = dateInputEl.value;
+                
+                // Parse the date properly
+                const dateParts = dateInputValue.split('-');
+                const year = parseInt(dateParts[0]);
+                const month = parseInt(dateParts[1]) - 1; // Months are 0-indexed in JS
+                const day = parseInt(dateParts[2]);
+                
+                // Create a clean date object 
+                const inputDateForDisplay = new Date(year, month, day);
+                
+                // Create a separate date object for the data manager
+                const dataManagerDate = new Date(year, month, day);
+                
+                // Set this as the start date for the data manager
+                window.testDataManager.setStartDate(dataManagerDate);
+                
+                // Now get the week dates with the specified offset
+                const dates = window.testDataManager.getWeekDates(weekOffset);
+                const firstDate = dates[0];
+                const lastDate = dates[dates.length - 1];
+                
+                const display = `Base date: ${inputDateForDisplay.toDateString()} (${year}-${(month+1).toString().padStart(2, '0')}-${day.toString().padStart(2, '0')})<br>
+                               Week offset: ${weekOffset}<br>
+                               Week start: ${firstDate.toDateString()}<br>
+                               Week end: ${lastDate.toDateString()}`;
+                showResult('week-dates-result', display, true);
+            } catch (error) {
+                showResult('week-dates-result', `Error: ${error.message}`, false);
+            }
+        }
+
+        function testHasConflict() {
+            try {
+                const className = document.getElementById('class-name').value;
+                const weekday = parseInt(document.getElementById('weekday').value);
+                const period = parseInt(document.getElementById('period').value);
+                
+                // Create a DataManager instance if needed
+                if (!window.testDataManager) {
+                    window.testDataManager = new DataManager();
+                }
+                
+                // First check if the class exists
+                const classData = window.testDataManager.getClasses().find(c => c.name === className);
+                if (!classData) {
+                    showResult('has-conflict-result', `Class "${className}" not found. Please enter a valid class name.`, false);
+                    return;
+                }
+                
+                // Convert weekday to a date string (we need a date to test conflicts)
+                const today = new Date();
+                const daysToAdd = (weekday - today.getDay() + 7) % 7;
+                const targetDate = new Date(today);
+                targetDate.setDate(today.getDate() + daysToAdd);
+                const dateStr = window.testDataManager.getFormattedDate(targetDate);
+                
+                const result = window.testDataManager.hasConflict(className, dateStr, period);
+                const display = `Class ${className} on ${targetDate.toDateString()} (weekday ${weekday}) period ${period}: ${result ? 'HAS CONFLICT' : 'NO CONFLICT'}`;
+                showResult('has-conflict-result', display, true);
+            } catch (error) {
+                showResult('has-conflict-result', `Error: ${error.message}`, false);
+            }
+        }
+
+        function testIsTeacherUnavailable() {
+            try {
+                const dateStr = document.getElementById('test-date').value;
+                const period = parseInt(document.getElementById('test-period').value);
+                
+                // Create a DataManager instance if needed
+                if (!window.testDataManager) {
+                    window.testDataManager = new DataManager();
+                }
+                
+                const result = window.testDataManager.isTeacherUnavailable(dateStr, period);
+                const date = new Date(dateStr);
+                const display = `Teacher availability on ${date.toDateString()} period ${period}: ${result ? 'UNAVAILABLE' : 'AVAILABLE'}`;
+                showResult('is-teacher-unavailable-result', display, true);
+            } catch (error) {
+                showResult('is-teacher-unavailable-result', `Error: ${error.message}`, false);
+            }
+        }
+
+        function testIsValidPlacement() {
+            try {
+                const dateStr = document.getElementById('validate-date').value;
+                const period = parseInt(document.getElementById('validate-period').value);
+                const className = document.getElementById('validate-class').value;
+                
+                // Create DataManager and Scheduler instances if needed
+                if (!window.testDataManager) {
+                    window.testDataManager = new DataManager();
+                }
+                if (!window.testScheduler) {
+                    window.testScheduler = new Scheduler(window.testDataManager);
+                }
+                
+                const result = window.testScheduler.isValidPlacement(className, dateStr, period);
+                const date = new Date(dateStr);
+                
+                let display = `Placement of ${className} on ${date.toDateString()} period ${period}: `;
+                if (result.valid) {
+                    display += `VALID`;
+                } else {
+                    display += `INVALID - ${result.reason}`;
+                }
+                showResult('is-valid-placement-result', display, result.valid);
+            } catch (error) {
+                showResult('is-valid-placement-result', `Error: ${error.message}`, false);
+            }
+        }
+    </script>
+</body>
+</html>

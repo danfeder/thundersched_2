@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cooking Class Scheduler (TEST MODE)</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <style>
+        .test-mode-indicator {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background-color: #ff6b6b;
+            color: white;
+            text-align: center;
+            padding: 5px;
+            font-weight: bold;
+            z-index: 1000;
+        }
+        
+        .test-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background-color: #f8f9fa;
+            border-top: 1px solid #dee2e6;
+            padding: 10px;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            z-index: 1000;
+        }
+        
+        .test-nav a {
+            padding: 8px 16px;
+            background-color: #4CAF50;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+        }
+        
+        .test-nav a:hover {
+            background-color: #45a049;
+        }
+        
+        .test-action-button {
+            margin: 0 5px;
+            padding: 8px 16px;
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .test-action-button:hover {
+            background-color: #0b7dda;
+        }
+        
+        body {
+            padding-top: 30px;
+            padding-bottom: 60px;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-mode-indicator">TEST MODE - For Testing Purposes Only</div>
+    
+    <header>
+        <h1>Cooking Class Scheduler Assistant (TEST MODE)</h1>
+    </header>
+    
+    <main>
+        <div class="container">
+            <div class="sidebar">
+                <h2>Unscheduled Classes</h2>
+                <div id="unscheduled-classes" class="class-list"></div>
+                
+                <div class="controls">
+                    <button id="suggest-next-btn" class="btn">Suggest Next Class</button>
+                    <button id="export-btn" class="btn btn-secondary">Export Schedule</button>
+                    <button id="manage-classes-btn" class="btn btn-secondary" onclick="window.openClassManager()">Manage Classes</button>
+                    <div class="teacher-mode-toggle">
+                        <input type="checkbox" id="teacher-mode" class="toggle-checkbox">
+                        <label for="teacher-mode" class="toggle-label">Teacher Mode</label>
+                        <span class="toggle-help" title="Toggle Teacher Mode to mark periods when you're unavailable. These will be considered when scheduling classes.">?</span>
+                    </div>
+                    <div class="btn-group">
+                        <button id="reset-btn" class="btn btn-danger">Reset Schedule</button>
+                        <button id="help-btn" class="btn btn-text">Show Help</button>
+                    </div>
+                    <div class="progress-bar">
+                        <div id="schedule-progress" class="progress"></div>
+                    </div>
+                    <div id="progress-text">0 of 0 classes scheduled</div>
+                    <div id="message-area" class="message-area"></div>
+                </div>
+            </div>
+            
+            <div class="schedule-container">
+                <div class="schedule-header">
+                    <h2>Weekly Schedule</h2>
+                    <div class="week-navigation">
+                        <button id="prev-week-btn" class="nav-btn">&lt; Prev Week</button>
+                        <div id="current-week-display" class="current-week"></div>
+                        <button id="next-week-btn" class="nav-btn">Next Week &gt;</button>
+                    </div>
+                    <div class="date-picker-container">
+                        <label for="start-date">Start Date:</label>
+                        <input type="date" id="start-date" class="date-picker">
+                    </div>
+                </div>
+                <div id="schedule-grid" class="schedule-grid"></div>
+            </div>
+        </div>
+    </main>
+    
+    <div class="test-nav">
+        <button class="test-action-button" onclick="resetTestData()">Reset Test Data</button>
+        <a href="test-runner.html" target="_blank">Function Tester</a>
+        <a href="data-inspector.html" target="_blank">Data Inspector</a>
+        <a href="test-plan.md" target="_blank">Test Plan</a>
+    </div>
+
+    <!-- Help Modal -->
+    <div id="help-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Cooking Class Scheduler Help</h2>
+            <h3>Using the Scheduler</h3>
+            <ul>
+                <li><strong>Viewing Available Slots:</strong> Click on a class to see available slots (highlighted in green) and conflicts (in red)</li>
+                <li><strong>Scheduling a Class:</strong> Drag a class from the sidebar and drop it into an available slot on the grid</li>
+                <li><strong>Rescheduling a Class:</strong> Click or drag a scheduled class to see other available slots, then drag it to a new position</li>
+                <li><strong>Unscheduling a Class:</strong> Double-click a scheduled class to remove it from the schedule</li>
+                <li><strong>Getting Suggestions:</strong> Click "Suggest Next Class" to highlight the most constrained class and its available slots</li>
+                <li><strong>Exporting:</strong> Click "Export Schedule" to download the current schedule as a CSV file</li>
+                <li><strong>Reset Schedule:</strong> Click "Reset Schedule" to clear all scheduled classes and start over</li>
+            </ul>
+            
+            <h3>Multi-Week Scheduling</h3>
+            <ul>
+                <li><strong>Navigating Weeks:</strong> Use the "Prev Week" and "Next Week" buttons to move between weeks</li>
+                <li><strong>Setting Start Date:</strong> Use the date picker to instantly jump to any week by selecting a date</li>
+                <li><strong>Week Display:</strong> The current week's date range is shown above the schedule grid</li>
+                <li><strong>Resetting:</strong> The "Reset Schedule" button only resets the currently displayed week</li>
+            </ul>
+            
+            <h3>Scheduling Rules</h3>
+            <ul>
+                <li>Classes cannot be scheduled during their conflict periods</li>
+                <li>Maximum of 4 classes per day</li>
+                <li>No more than 2 consecutive classes (to avoid 3+ in a row)</li>
+                <li>Weekly teaching load: 12-16 classes total</li>
+                <li>Each class can only be scheduled once across all weeks</li>
+                <li>Classes cannot be scheduled during teacher unavailability periods</li>
+            </ul>
+            
+            <h3>Teacher Mode</h3>
+            <ul>
+                <li><strong>Enabling Teacher Mode:</strong> Toggle the "Teacher Mode" switch to mark periods when you're unavailable</li>
+                <li><strong>Marking Unavailability:</strong> With Teacher Mode active, click on any unscheduled time slot to mark it as unavailable</li>
+                <li><strong>Removing Unavailability:</strong> Click again on a marked slot to make it available again</li>
+                <li><strong>Visual Indicators:</strong> Unavailable slots are shown with a yellow background and X mark</li>
+                <li><strong>Impact on Scheduling:</strong> Classes cannot be scheduled in periods marked as teacher unavailable</li>
+            </ul>
+            
+            <h3>Class Manager</h3>
+            <ul>
+                <li><strong>Opening Class Manager:</strong> Click the "Manage Classes" button to open the class manager</li>
+                <li><strong>Adding Classes:</strong> Click "Add New Class" to create a new class</li>
+                <li><strong>Editing Classes:</strong> Select a class from the list to edit its details</li>
+                <li><strong>Setting Conflicts:</strong> Click on periods in the conflict grid to mark times when a class CANNOT be scheduled</li>
+                <li><strong>Deleting Classes:</strong> Select a class and click "Delete Class" (only works for unscheduled classes)</li>
+                <li><strong>Auto-Naming:</strong> If you leave the class name blank, it will be auto-generated based on grade level</li>
+            </ul>
+        </div>
+    </div>
+    
+    <!-- Class Manager Modal -->
+    <div id="class-manager-modal" class="modal">
+        <div class="modal-content class-manager-content">
+            <span class="close" onclick="window.closeClassManager()">&times;</span>
+            <h2>Class Manager</h2>
+            
+            <div class="class-manager-container">
+                <div class="class-selector">
+                    <h3>Classes</h3>
+                    <div class="class-list-container">
+                        <div id="class-list" class="class-list scrollable"></div>
+                    </div>
+                    <button id="add-class-btn" class="btn">Add New Class</button>
+                </div>
+                
+                <div class="class-editor">
+                    <h3>Edit Class</h3>
+                    <form id="class-edit-form">
+                        <div class="form-group">
+                            <label for="class-name">Class Name:</label>
+                            <input type="text" id="class-name" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="class-grade">Grade Level:</label>
+                            <select id="class-grade">
+                                <option value="PK">Pre-K</option>
+                                <option value="K">Kindergarten</option>
+                                <option value="1">1st Grade</option>
+                                <option value="2">2nd Grade</option>
+                                <option value="3">3rd Grade</option>
+                                <option value="4">4th Grade</option>
+                                <option value="5">5th Grade</option>
+                                <option value="mixed">Mixed Grades</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Conflict Periods:</label>
+                            <div class="conflict-grid-container">
+                                <div id="conflict-grid" class="conflict-grid"></div>
+                            </div>
+                            <div class="conflict-help">Click on periods when this class CANNOT be scheduled</div>
+                        </div>
+                        
+                        <div class="form-actions">
+                            <button type="submit" id="save-class-btn" class="btn">Save Class</button>
+                            <button type="button" id="delete-class-btn" class="btn btn-danger">Delete Class</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="src/data.js"></script>
+    <script src="src/scheduler.js"></script>
+    <script src="src/app.js"></script>
+    <script src="src/class-manager.js"></script>
+    <script src="test-data-generator.js"></script>
+    
+    <script>
+        function resetTestData() {
+            if (confirm('This will reset all test data. Continue?')) {
+                // Clear existing data
+                localStorage.removeItem('cooking-class-schedule');
+                localStorage.removeItem('cooking-classes');
+                localStorage.removeItem('teacher-unavailability');
+                
+                // Reload the page with the loadTestData parameter
+                window.location.href = 'test.html?loadTestData=true';
+            }
+        }
+        
+        // Auto-load test data if not already present
+        document.addEventListener('DOMContentLoaded', function() {
+            const hasClasses = localStorage.getItem('cooking-classes');
+            if (!hasClasses && !window.location.search.includes('loadTestData=true')) {
+                window.location.href = 'test.html?loadTestData=true';
+            }
+        });
+    </script>
+</body>
+</html>
