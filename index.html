@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cooking Class Scheduler</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <header>
+        <h1>Cooking Class Scheduler Assistant</h1>
+    </header>
+    
+    <main>
+        <div class="container">
+            <div class="sidebar">
+                <h2>Unscheduled Classes</h2>
+                <div id="unscheduled-classes" class="class-list"></div>
+                
+                <div class="controls">
+                    <button id="suggest-next-btn" class="btn">Suggest Next Class</button>
+                    <button id="export-btn" class="btn btn-secondary">Export Schedule</button>
+                    <div class="btn-group">
+                        <button id="reset-btn" class="btn btn-danger">Reset Schedule</button>
+                        <button id="help-btn" class="btn btn-text">Show Help</button>
+                    </div>
+                    <div class="progress-bar">
+                        <div id="schedule-progress" class="progress"></div>
+                    </div>
+                    <div id="progress-text">0 of 0 classes scheduled</div>
+                    <div id="message-area" class="message-area"></div>
+                </div>
+            </div>
+            
+            <div class="schedule-container">
+                <div class="schedule-header">
+                    <h2>Weekly Schedule</h2>
+                    <div class="week-navigation">
+                        <button id="prev-week-btn" class="nav-btn">&lt; Prev Week</button>
+                        <div id="current-week-display" class="current-week"></div>
+                        <button id="next-week-btn" class="nav-btn">Next Week &gt;</button>
+                    </div>
+                    <div class="date-picker-container">
+                        <label for="start-date">Start Date:</label>
+                        <input type="date" id="start-date" class="date-picker">
+                    </div>
+                </div>
+                <div id="schedule-grid" class="schedule-grid"></div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Help Modal -->
+    <div id="help-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Cooking Class Scheduler Help</h2>
+            <h3>Using the Scheduler</h3>
+            <ul>
+                <li><strong>Viewing Available Slots:</strong> Click on a class to see available slots (highlighted in green) and conflicts (in red)</li>
+                <li><strong>Scheduling a Class:</strong> Drag a class from the sidebar and drop it into an available slot on the grid</li>
+                <li><strong>Rescheduling a Class:</strong> Click or drag a scheduled class to see other available slots, then drag it to a new position</li>
+                <li><strong>Unscheduling a Class:</strong> Double-click a scheduled class to remove it from the schedule</li>
+                <li><strong>Getting Suggestions:</strong> Click "Suggest Next Class" to highlight the most constrained class and its available slots</li>
+                <li><strong>Exporting:</strong> Click "Export Schedule" to download the current schedule as a CSV file</li>
+                <li><strong>Reset Schedule:</strong> Click "Reset Schedule" to clear all scheduled classes and start over</li>
+            </ul>
+            
+            <h3>Multi-Week Scheduling</h3>
+            <ul>
+                <li><strong>Navigating Weeks:</strong> Use the "Prev Week" and "Next Week" buttons to move between weeks</li>
+                <li><strong>Setting Start Date:</strong> Use the date picker to instantly jump to any week by selecting a date</li>
+                <li><strong>Week Display:</strong> The current week's date range is shown above the schedule grid</li>
+                <li><strong>Resetting:</strong> The "Reset Schedule" button only resets the currently displayed week</li>
+            </ul>
+            
+            <h3>Scheduling Rules</h3>
+            <ul>
+                <li>Classes cannot be scheduled during their conflict periods</li>
+                <li>Maximum of 4 classes per day</li>
+                <li>No more than 2 consecutive classes (to avoid 3+ in a row)</li>
+                <li>Weekly teaching load: 12-16 classes total</li>
+                <li>Each class can only be scheduled once across all weeks</li>
+            </ul>
+        </div>
+    </div>
+
+    <script src="src/data.js"></script>
+    <script src="src/scheduler.js"></script>
+    <script src="src/app.js"></script>
+</body>
+</html>
