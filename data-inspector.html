@@ -463,12 +463,17 @@
             const container = document.getElementById('teacher-table-container');
             const weekDates = dataManager.getWeekDates(weekOffset);
             
+            console.log("Refreshing teacher table for week offset:", weekOffset);
+            console.log("Teacher data:", dataManager.teacherUnavailability);
+            
             // Format date strings
             const dateStrings = [];
             for (let i = 0; i < weekDates.length; i++) {
                 const date = weekDates[i];
                 dateStrings.push(dataManager.getFormattedDate(date));
             }
+            
+            console.log("Week dates:", dateStrings);
             
             let html = '<table>';
             // Header row with dates
@@ -494,15 +499,56 @@
             
             html += '</table>';
             container.innerHTML = html;
+            
+            // Add a note if no teacher data exists for this week
+            if (!dataManager.teacherUnavailability[weekOffset] || 
+                Object.keys(dataManager.teacherUnavailability[weekOffset]).length === 0) {
+                const note = document.createElement('div');
+                note.style.color = '#666';
+                note.style.fontStyle = 'italic';
+                note.style.marginTop = '10px';
+                note.textContent = 'No teacher unavailability data for this week. Try marking some periods as unavailable in teacher mode.';
+                container.appendChild(note);
+            }
         }
         
         function isTeacherUnavailableForDate(weekOffset, dateStr, period) {
             const teacherData = dataManager.teacherUnavailability;
-            if (teacherData[weekOffset] && 
-                teacherData[weekOffset][dateStr] && 
-                teacherData[weekOffset][dateStr][period]) {
-                return true;
+            weekOffset = parseInt(weekOffset); // Ensure weekOffset is a number
+            period = parseInt(period); // Ensure period is a number
+            
+            console.log("Checking teacher unavailability:", {
+                weekOffset: weekOffset,
+                dateStr: dateStr,
+                period: period
+            });
+            
+            console.log("Available teacher data week offsets:", Object.keys(teacherData));
+            
+            // Check if there's any data for this week
+            if (teacherData[weekOffset]) {
+                console.log("Teacher week data found for offset", weekOffset);
+                console.log("Available teacher dates:", Object.keys(teacherData[weekOffset]));
+                
+                // Check if there's any data for this date
+                if (teacherData[weekOffset][dateStr]) {
+                    console.log("Teacher date data found for", dateStr);
+                    console.log("Available teacher periods:", Object.keys(teacherData[weekOffset][dateStr]));
+                    
+                    // Check if there's any data for this period
+                    if (teacherData[weekOffset][dateStr][period] === true) {
+                        console.log("Teacher unavailable for period", period);
+                        return true;
+                    } else {
+                        console.log("Teacher available for period", period);
+                    }
+                } else {
+                    console.log("No teacher data found for date", dateStr);
+                }
+            } else {
+                console.log("No teacher data found for week offset", weekOffset);
             }
+            
             return false;
         }
 

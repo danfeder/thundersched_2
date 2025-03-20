@@ -7,10 +7,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Make dataManager available globally for the class manager
     window.dataManager = dataManager;
     
-    // Add helper method for data persistence
+    // Add helper methods for data persistence
     window.saveScheduleToLocalStorage = function() {
         localStorage.setItem('cooking-class-schedule', JSON.stringify(dataManager.scheduleWeeks));
         console.log("Schedule explicitly saved to localStorage");
+    };
+    
+    window.saveTeacherUnavailabilityToLocalStorage = function() {
+        localStorage.setItem('teacher-unavailability', JSON.stringify(dataManager.teacherUnavailability));
+        console.log("Teacher unavailability explicitly saved to localStorage");
     };
     
     // Make render functions available globally
@@ -710,6 +715,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             
             // Toggle the teacher unavailability for this period
             const isNowUnavailable = dataManager.toggleTeacherUnavailability(dateStr, period);
+            
+            // Explicitly save to localStorage to ensure persistence
+            if (window.saveTeacherUnavailabilityToLocalStorage) {
+                window.saveTeacherUnavailabilityToLocalStorage();
+                console.log("Teacher unavailability saved for:", dateStr, period, isNowUnavailable);
+            }
             
             // Update the visual indicator
             if (isNowUnavailable) {

@@ -286,7 +286,8 @@
                     
                     // Save to localStorage
                     localStorage.setItem('teacher-unavailability', JSON.stringify(this.teacherUnavailability));
-                    console.log("Teacher unavailability saved to localStorage");
+                    console.log("Teacher unavailability saved to localStorage for", dateStr, "period", period, "is now", result);
+                    console.log("Teacher data:", this.teacherUnavailability);
                     
                     return result;
                 };
