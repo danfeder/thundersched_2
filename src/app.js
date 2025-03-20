@@ -1597,6 +1597,29 @@ document.addEventListener('DOMContentLoaded', async () => {
                 localStorage.setItem('cooking-class-config', JSON.stringify(dataManager.config));
                 localStorage.setItem('teacher-unavailability', JSON.stringify(dataManager.teacherUnavailability));
                 
+                // If the Class Manager is open, reset its state
+                if (document.getElementById('class-manager-modal').style.display === 'block') {
+                    if (typeof refreshClassList === 'function') {
+                        refreshClassList(null);
+                    }
+                    if (typeof clearConflicts === 'function') {
+                        clearConflicts();
+                    }
+                    
+                    // Clear and disable the form until a class is selected
+                    const classEditForm = document.getElementById('class-edit-form');
+                    if (classEditForm) {
+                        classEditForm.classList.add('disabled');
+                        
+                        const classNameInput = document.getElementById('class-name');
+                        const classGradeSelect = document.getElementById('class-grade');
+                        if (classNameInput && classGradeSelect) {
+                            classNameInput.value = '';
+                            classGradeSelect.value = 'PK';
+                        }
+                    }
+                }
+                
             } else if (mode === 'adapt') {
                 // Adapt mode - keep current classes but load scheduled placements where possible
                 dataManager.scheduleWeeks = {};
@@ -1639,6 +1662,29 @@ document.addEventListener('DOMContentLoaded', async () => {
                 localStorage.setItem('cooking-class-schedule', JSON.stringify(dataManager.scheduleWeeks));
                 localStorage.setItem('cooking-class-config', JSON.stringify(dataManager.config));
                 localStorage.setItem('teacher-unavailability', JSON.stringify(dataManager.teacherUnavailability));
+                
+                // If the Class Manager is open, reset its state
+                if (document.getElementById('class-manager-modal').style.display === 'block') {
+                    if (typeof refreshClassList === 'function') {
+                        refreshClassList(null);
+                    }
+                    if (typeof clearConflicts === 'function') {
+                        clearConflicts();
+                    }
+                    
+                    // Clear and disable the form until a class is selected
+                    const classEditForm = document.getElementById('class-edit-form');
+                    if (classEditForm) {
+                        classEditForm.classList.add('disabled');
+                        
+                        const classNameInput = document.getElementById('class-name');
+                        const classGradeSelect = document.getElementById('class-grade');
+                        if (classNameInput && classGradeSelect) {
+                            classNameInput.value = '';
+                            classGradeSelect.value = 'PK';
+                        }
+                    }
+                }
             }
             
             // Reset to the first week of the schedule

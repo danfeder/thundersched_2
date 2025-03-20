@@ -974,8 +974,22 @@ function applyLoadedClassCollection(collection, mode) {
         // Save to localStorage
         localStorage.setItem('cooking-classes', JSON.stringify(newClasses));
         
-        // Refresh the class list
-        refreshClassList();
+        // Refresh the class list - pass null to ensure no class is selected
+        refreshClassList(null);
+        
+        // Clear the conflict grid
+        clearConflicts();
+        
+        // Clear and disable the form until a class is selected
+        const classNameInput = document.getElementById('class-name');
+        const classGradeSelect = document.getElementById('class-grade');
+        const classEditForm = document.getElementById('class-edit-form');
+        
+        if (classNameInput && classGradeSelect && classEditForm) {
+            classNameInput.value = '';
+            classGradeSelect.value = 'PK';
+            classEditForm.classList.add('disabled');
+        }
         
         // Update the unscheduled classes list and progress in the main app
         if (window.renderUnscheduledClasses) {
