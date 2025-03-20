@@ -4,6 +4,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     const dataManager = new DataManager();
     const scheduler = new Scheduler(dataManager);
     
+    // Make dataManager available globally for the class manager
+    window.dataManager = dataManager;
+    
+    // Make render functions available globally
+    window.renderUnscheduledClasses = renderUnscheduledClasses;
+    window.showMessage = showMessage;
+    
     // Global state for teacher mode
     let teacherModeActive = false;
     
