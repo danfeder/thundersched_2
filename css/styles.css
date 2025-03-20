@@ -61,6 +61,12 @@ header {
     background-color: #d0d0d0;
 }
 
+.class-item.hovering {
+    background-color: #bbdefb;
+    border-left: 3px solid #1976d2;
+    box-shadow: 0 2px 5px rgba(25, 118, 210, 0.3);
+}
+
 .schedule-grid {
     display: grid;
     grid-template-columns: 100px repeat(5, 1fr);
@@ -150,11 +156,24 @@ header {
     transform: translateY(-2px);
 }
 
+.scheduled-class.hovering {
+    background-color: #1565c0;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.4);
+    transform: translateY(-3px);
+    border: 2px solid #fff;
+}
+
 .dragging {
-    opacity: 0.5;
+    opacity: 0.7;
     transform: scale(1.05);
     box-shadow: 0 5px 15px rgba(0,0,0,0.2);
     z-index: 100;
+}
+
+/* When dragging is happening, make other scheduled classes semi-transparent */
+.dragging-active .scheduled-class:not(.dragging) {
+    opacity: 0.4;
+    transition: opacity 0.2s ease;
 }
 
 .validation-message {

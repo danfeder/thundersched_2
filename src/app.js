@@ -158,9 +158,32 @@ document.addEventListener('DOMContentLoaded', async () => {
                         
                         // Add drag and click handlers
                         classElement.addEventListener('dragstart', handleScheduledClassDragStart);
+                        classElement.addEventListener('dragend', handleDragEnd);
                         classElement.addEventListener('click', (e) => {
                             e.stopPropagation(); // Prevent cell click
                             highlightAvailableSlots(className);
+                        });
+                        
+                        // Add hover preview functionality for scheduled classes too
+                        classElement.addEventListener('mouseenter', () => {
+                            // Add a short delay before showing preview
+                            classElement.hoverTimer = setTimeout(() => {
+                                highlightAvailableSlots(className);
+                                classElement.classList.add('hovering');
+                            }, 200); // 200ms delay for intentional hovering
+                        });
+                        
+                        classElement.addEventListener('mouseleave', () => {
+                            // Clear the timer if mouse leaves before the delay completes
+                            if (classElement.hoverTimer) {
+                                clearTimeout(classElement.hoverTimer);
+                            }
+                            
+                            // Only clear highlights if we're not currently dragging
+                            if (!document.querySelector('.dragging')) {
+                                clearHighlights();
+                            }
+                            classElement.classList.remove('hovering');
                         });
                         
                         // Add double-click to unschedule
@@ -212,7 +235,30 @@ document.addEventListener('DOMContentLoaded', async () => {
             classElement.dataset.className = classInfo.name;
             
             classElement.addEventListener('dragstart', handleDragStart);
+            classElement.addEventListener('dragend', handleDragEnd);
             classElement.addEventListener('click', () => highlightAvailableSlots(classInfo.name));
+            
+            // Add hover preview functionality
+            classElement.addEventListener('mouseenter', () => {
+                // Add a short delay before showing preview to avoid unwanted flashes
+                classElement.hoverTimer = setTimeout(() => {
+                    highlightAvailableSlots(classInfo.name);
+                    classElement.classList.add('hovering');
+                }, 200); // 200ms delay for intentional hovering
+            });
+            
+            classElement.addEventListener('mouseleave', () => {
+                // Clear the timer if mouse leaves before the delay completes
+                if (classElement.hoverTimer) {
+                    clearTimeout(classElement.hoverTimer);
+                }
+                
+                // Only clear highlights if we're not currently dragging
+                if (!document.querySelector('.dragging')) {
+                    clearHighlights();
+                }
+                classElement.classList.remove('hovering');
+            });
             
             unscheduledClassesContainer.appendChild(classElement);
         });
@@ -290,9 +336,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     
     function handleDragStart(e) {
-        e.dataTransfer.setData('text/plain', e.target.dataset.className);
+        const className = e.target.dataset.className;
+        e.dataTransfer.setData('text/plain', className);
         e.dataTransfer.setData('source', 'unscheduled');
         e.target.classList.add('dragging');
+        
+        // Add dragging-active class to the schedule grid to dim other classes
+        document.getElementById('schedule-grid').classList.add('dragging-active');
+        
+        // Immediately show available slots and conflicts when dragging starts
+        highlightAvailableSlots(className);
     }
     
     function handleScheduledClassDragStart(e) {
@@ -305,6 +358,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         e.dataTransfer.setData('originalDate', originalDate);
         e.dataTransfer.setData('originalPeriod', originalPeriod);
         e.target.classList.add('dragging');
+        
+        // Add dragging-active class to the schedule grid to dim other classes
+        document.getElementById('schedule-grid').classList.add('dragging-active');
         
         // Show available slots for this class (like when it's clicked)
         highlightAvailableSlots(className);
@@ -330,6 +386,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
     
+    function handleDragEnd(e) {
+        // Remove the dragging class
+        e.target.classList.remove('dragging');
+        
+        // Remove dragging-active class from schedule grid
+        document.getElementById('schedule-grid').classList.remove('dragging-active');
+        
+        // Clear any dragover classes
+        document.querySelectorAll('.dragover').forEach(el => {
+            el.classList.remove('dragover');
+        });
+        
+        // Clear highlighted cells when drag is canceled (not dropped)
+        clearHighlights();
+    }
+    
     function handleDrop(e) {
         e.preventDefault();
         const className = e.dataTransfer.getData('text/plain');
@@ -339,6 +411,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         // Remove dragging class
         document.querySelector('.dragging')?.classList.remove('dragging');
+        
+        // Remove dragging-active class from schedule grid
+        document.getElementById('schedule-grid').classList.remove('dragging-active');
         
         // Remove any dragover classes
         document.querySelectorAll('.dragover').forEach(el => el.classList.remove('dragover'));
