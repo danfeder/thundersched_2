@@ -217,10 +217,11 @@
                 html += `<tr><td>${classData.name}</td>`;
                 
                 for (let weekday = 0; weekday < 5; weekday++) {
+                    const dayName = weekdays[weekday]; // Get the weekday name (Monday, Tuesday, etc.)
                     for (let period = 1; period <= 8; period++) {
                         const hasConflict = classData.conflicts && 
-                                           classData.conflicts[weekdays[weekday]] && 
-                                           classData.conflicts[weekdays[weekday]].includes(period);
+                                           classData.conflicts[dayName] && 
+                                           classData.conflicts[dayName].includes(period);
                         
                         if (hasConflict) {
                             html += `<td class="conflict-cell">X</td>`;

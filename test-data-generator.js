@@ -28,65 +28,65 @@
         {
             name: "PK101",
             conflicts: {
-                0: [1, 2], // Monday periods 1-2
-                2: [5, 6, 7, 8], // Wednesday periods 5-8
-                4: [3, 4]  // Friday periods 3-4
+                "Monday": [1, 2],     // Monday periods 1-2
+                "Wednesday": [5, 6, 7, 8], // Wednesday periods 5-8
+                "Friday": [3, 4]      // Friday periods 3-4
             }
         },
         {
             name: "PK102",
             conflicts: {
-                0: [3, 4], // Monday periods 3-4
-                1: [1, 2], // Tuesday periods 1-2
-                3: [5, 6]  // Thursday periods 5-6
+                "Monday": [3, 4],     // Monday periods 3-4
+                "Tuesday": [1, 2],    // Tuesday periods 1-2
+                "Thursday": [5, 6]    // Thursday periods 5-6
             }
         },
         {
             name: "K101",
             conflicts: {
-                0: [5, 6], // Monday periods 5-6
-                2: [1, 2], // Wednesday periods 1-2
-                4: [7, 8]  // Friday periods 7-8
+                "Monday": [5, 6],     // Monday periods 5-6
+                "Wednesday": [1, 2],  // Wednesday periods 1-2
+                "Friday": [7, 8]      // Friday periods 7-8
             }
         },
         {
             name: "K102",
             conflicts: {
-                1: [5, 6], // Tuesday periods 5-6
-                3: [3, 4], // Thursday periods 3-4
-                4: [1, 2]  // Friday periods 1-2
+                "Tuesday": [5, 6],    // Tuesday periods 5-6
+                "Thursday": [3, 4],   // Thursday periods 3-4
+                "Friday": [1, 2]      // Friday periods 1-2
             }
         },
         {
             name: "1A",
             conflicts: {
-                0: [7, 8], // Monday periods 7-8
-                2: [3, 4], // Wednesday periods 3-4
-                3: [1, 2]  // Thursday periods 1-2
+                "Monday": [7, 8],     // Monday periods 7-8
+                "Wednesday": [3, 4],  // Wednesday periods 3-4
+                "Thursday": [1, 2]    // Thursday periods 1-2
             }
         },
         {
             name: "1B",
             conflicts: {
-                1: [3, 4], // Tuesday periods 3-4
-                2: [7, 8], // Wednesday periods 7-8
-                4: [5, 6]  // Friday periods 5-6
+                "Tuesday": [3, 4],    // Tuesday periods 3-4
+                "Wednesday": [7, 8],  // Wednesday periods 7-8
+                "Friday": [5, 6]      // Friday periods 5-6
             }
         },
         {
             name: "2A",
             conflicts: {
-                0: [6, 7, 8], // Monday periods 6-8
-                1: [7, 8],    // Tuesday periods 7-8
-                3: [7, 8]     // Thursday periods 7-8
+                "Monday": [6, 7, 8],  // Monday periods 6-8
+                "Tuesday": [7, 8],    // Tuesday periods 7-8
+                "Thursday": [7, 8]    // Thursday periods 7-8
             }
         },
         {
             name: "2B",
             conflicts: {
-                1: [1, 2],   // Tuesday periods 1-2
-                2: [1, 2, 3], // Wednesday periods 1-3
-                4: [1, 2]    // Friday periods 1-2
+                "Tuesday": [1, 2],    // Tuesday periods 1-2
+                "Wednesday": [1, 2, 3], // Wednesday periods 1-3
+                "Friday": [1, 2]      // Friday periods 1-2
             }
         }
     ];
