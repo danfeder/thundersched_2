@@ -331,6 +331,15 @@ document.getElementById('class-edit-form')?.addEventListener('submit', function(
         
         // Update the class list without closing the modal
         refreshClassList(className);
+        
+        // Update the unscheduled classes list and progress in the main app
+        if (window.renderUnscheduledClasses) {
+            window.renderUnscheduledClasses();
+            // Update progress if available
+            if (typeof window.updateProgress === 'function') {
+                window.updateProgress();
+            }
+        }
     } else {
         // Update existing class
         const selectedClass = window.dataManager?.getClasses().find(c => c.name === selectedClassName);
@@ -345,6 +354,15 @@ document.getElementById('class-edit-form')?.addEventListener('submit', function(
             // Update the conflicts to match what we just saved
             const updatedClass = { name: className, conflicts };
             showClassDetails(updatedClass);
+            
+            // Update the unscheduled classes list and progress in the main app
+            if (window.renderUnscheduledClasses) {
+                window.renderUnscheduledClasses();
+                // Update progress if available
+                if (typeof window.updateProgress === 'function') {
+                    window.updateProgress();
+                }
+            }
         }
     }
     
@@ -390,6 +408,15 @@ document.getElementById('delete-class-btn')?.addEventListener('click', function(
         
         // Reload the class list by reopening the modal
         window.openClassManager();
+        
+        // Update the unscheduled classes list and progress in the main app
+        if (window.renderUnscheduledClasses) {
+            window.renderUnscheduledClasses();
+            // Update progress if available
+            if (typeof window.updateProgress === 'function') {
+                window.updateProgress();
+            }
+        }
         
         // Show success message
         if (window.showMessage) {

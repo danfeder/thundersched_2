@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // Make render functions available globally
     window.renderUnscheduledClasses = renderUnscheduledClasses;
+    window.updateProgress = updateProgress;
     window.showMessage = showMessage;
     
     // Global state for teacher mode
@@ -201,40 +202,72 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     
     function highlightAvailableSlots(className) {
-        // Clear previous highlights
+        // Store teacher unavailability markers before clearing
+        const teacherUnavailableCells = new Map();
+        document.querySelectorAll('.grid-cell.teacher-unavailable').forEach(cell => {
+            const date = cell.dataset.date;
+            const period = cell.dataset.period;
+            teacherUnavailableCells.set(`${date}-${period}`, cell);
+        });
+        
+        // Clear previous highlights but maintain teacher-unavailable class
         document.querySelectorAll('.grid-cell').forEach(cell => {
             cell.classList.remove('available');
             cell.classList.remove('conflict');
+            // Do NOT remove the teacher-unavailable class here
         });
         
         // Get current week dates
         const weekDates = dataManager.getCurrentWeekDates();
         
-        // First, get available slots and highlight them
-        const availableSlots = scheduler.suggestAvailableSlots(className);
-        availableSlots.forEach(slot => {
-            const cell = document.querySelector(`.grid-cell[data-date="${slot.date}"][data-period="${slot.period}"]`);
-            if (cell) {
-                cell.classList.add('available');
-                cell.title = `Available slot for ${className}`;
-            }
-        });
+        // Get the class info to check conflicts
+        const classInfo = dataManager.getClasses().find(c => c.name === className);
+        if (!classInfo) return;
         
-        // Then highlight conflicts for each date
+        // Process all cells on the grid
         weekDates.forEach(date => {
             const dateStr = dataManager.getFormattedDate(date);
             const dayOfWeek = dataManager.getDayFromDate(date);
             
-            // Check for conflicts
-            const classInfo = dataManager.getClasses().find(c => c.name === className);
-            if (classInfo && classInfo.conflicts[dayOfWeek]) {
-                classInfo.conflicts[dayOfWeek].forEach(period => {
-                    const cell = document.querySelector(`.grid-cell[data-date="${dateStr}"][data-period="${period}"]`);
-                    if (cell) {
-                        cell.classList.add('conflict');
-                        cell.title = `Conflict: ${className} cannot be scheduled here`;
+            for (let period = 1; period <= 8; period++) {
+                const cell = document.querySelector(`.grid-cell[data-date="${dateStr}"][data-period="${period}"]`);
+                if (!cell) continue;
+                
+                // Skip cells that already have classes scheduled
+                if (cell.classList.contains('scheduled')) continue;
+                
+                // First check for class-specific conflicts (these always take priority and show as red)
+                if (classInfo.conflicts[dayOfWeek] && 
+                    classInfo.conflicts[dayOfWeek].includes(Number(period))) {
+                    cell.classList.add('conflict');
+                    cell.title = `Conflict: ${className} cannot be scheduled during this period.`;
+                    continue;
+                }
+                
+                // Check for other constraints (but teacher unavailability does not make a cell invalid now)
+                const validation = scheduler.isValidPlacement(className, dateStr, period);
+                
+                if (validation.valid) {
+                    // No conflicts, mark as available - even if teacher is unavailable
+                    cell.classList.add('available');
+                    
+                    // Set appropriate tooltip based on teacher availability
+                    if (dataManager.isTeacherUnavailable(dateStr, period)) {
+                        cell.title = `Available with confirmation - Teacher is marked as unavailable during this period.`;
+                    } else {
+                        cell.title = `Available slot for ${className}`;
                     }
-                });
+                } else {
+                    // Not valid for other reasons like consecutive classes or daily limits
+                    cell.classList.add('conflict');
+                    cell.title = validation.reason || `Conflict: This slot is not available for ${className}.`;
+                }
+                
+                // Re-apply teacher unavailability class if it was there before
+                // (Should be redundant since we're not removing it, but just to be safe)
+                if (dataManager.isTeacherUnavailable(dateStr, period)) {
+                    cell.classList.add('teacher-unavailable');
+                }
             }
         });
     }
@@ -310,9 +343,36 @@ document.addEventListener('DOMContentLoaded', async () => {
             dataManager.unscheduleClass(originalDate, originalPeriod);
         }
         
-        // Check specifically for teacher unavailability
+        // First check if there's a class-specific conflict (these always take priority)
+        const classInfo = dataManager.getClasses().find(c => c.name === className);
+        if (classInfo) {
+            // Get the day of week for this date
+            const [year, month, day] = dateStr.split('-').map(num => parseInt(num, 10));
+            const date = new Date(year, month - 1, day);
+            const dayOfWeek = dataManager.getDayFromDate(date);
+            
+            // Check for class conflict directly - this is a hard constraint that cannot be overridden
+            if (classInfo.conflicts[dayOfWeek] && 
+                classInfo.conflicts[dayOfWeek].includes(Number(period))) {
+                
+                // Show error message
+                showMessage('error', `Cannot place ${className} here: Class has a conflict during this period.`);
+                
+                // If this was a scheduled class that we removed, put it back
+                if (source === 'scheduled') {
+                    const originalDate = e.dataTransfer.getData('originalDate');
+                    const originalPeriod = e.dataTransfer.getData('originalPeriod');
+                    dataManager.scheduleClass(className, originalDate, originalPeriod);
+                    renderScheduleGrid();
+                }
+                
+                return; // Don't proceed with placement
+            }
+        }
+        
+        // ONLY THEN check for teacher unavailability (which can be overridden)
         if (dataManager.isTeacherUnavailable(dateStr, period)) {
-            const confirmOverride = confirm('You are unavailable during this period. Are you sure you want to schedule a class here?');
+            const confirmOverride = confirm('Teacher is unavailable during this period. Are you sure you want to schedule a class here?');
             if (!confirmOverride) {
                 // If user cancels, put the class back if it was scheduled
                 if (source === 'scheduled') {
@@ -367,9 +427,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             cell.classList.remove('conflict');
             cell.classList.remove('dragover');
             
-            // Clear tooltip unless it's a scheduled cell
+            // IMPORTANT: We don't remove teacher-unavailable class here
+            
+            // Clear tooltip unless it's a scheduled cell or teacher unavailable cell
             if (!cell.classList.contains('scheduled')) {
-                cell.removeAttribute('title');
+                // If it's a teacher-unavailable cell, set appropriate tooltip
+                if (cell.classList.contains('teacher-unavailable')) {
+                    cell.title = 'Conflict: Teacher is unavailable during this period.';
+                } else {
+                    cell.removeAttribute('title');
+                }
             }
         });
     }
@@ -549,18 +616,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         const dates = dataManager.getCurrentWeekDates();
         
         if (dates && dates.length > 0) {
-            const startDate = dataManager.getFormattedDate(dates[0]);
-            const endDate = dataManager.getFormattedDate(dates[dates.length - 1]);
+            // Ensure we're using the actual Monday-Friday range that the calendar shows
+            // The first date in the array should be Monday
+            const startDate = dates[0];
+            // Last date in the array should be Friday
+            const endDate = dates[dates.length - 1];
             
             // Format as "Mar 17 - Mar 21, 2025"
-            const startObj = new Date(startDate);
-            const endObj = new Date(endDate);
             const formatOptions = { month: 'short', day: 'numeric' };
             const yearOptions = { year: 'numeric' };
             
-            const formattedStart = startObj.toLocaleDateString(undefined, formatOptions);
-            const formattedEnd = endObj.toLocaleDateString(undefined, formatOptions);
-            const year = endObj.toLocaleDateString(undefined, yearOptions);
+            const formattedStart = startDate.toLocaleDateString(undefined, formatOptions);
+            const formattedEnd = endDate.toLocaleDateString(undefined, formatOptions);
+            const year = endDate.toLocaleDateString(undefined, yearOptions);
             
             weekDisplay.textContent = `${formattedStart} - ${formattedEnd}, ${year}`;
         }
@@ -624,7 +692,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Update the visual indicator
             if (isNowUnavailable) {
                 cell.classList.add('teacher-unavailable');
-                cell.title = 'You are unavailable during this period';
+                cell.title = 'Conflict: Teacher is unavailable during this period.';
             } else {
                 cell.classList.remove('teacher-unavailable');
                 cell.removeAttribute('title');
@@ -656,7 +724,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 // Then check and add marker if unavailable
                 if (dataManager.isTeacherUnavailable(dateStr, period)) {
                     cell.classList.add('teacher-unavailable');
-                    cell.title = 'You are unavailable during this period';
+                    cell.title = 'Conflict: Teacher is unavailable during this period.';
                 }
             }
         });

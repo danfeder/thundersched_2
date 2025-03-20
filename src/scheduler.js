@@ -13,26 +13,35 @@ class Scheduler {
             return { valid: false, reason: 'This time slot is already scheduled.' };
         }
 
-        // Check if the class has a conflict during this period
-        // Note: We now handle teacher unavailability separately in the drop handler
-        // to allow for confirmation, so we specifically exclude that check here
-        if (this.dataManager.hasConflict(className, dateStr, period)) {
-            // Only check for class conflicts, not teacher unavailability
-            if (!this.dataManager.isTeacherUnavailable(dateStr, period)) {
-                return { valid: false, reason: 'This class has a conflict during this period.' };
+        // Get class information to check specific conflicts
+        const classInfo = this.dataManager.getClasses().find(c => c.name === className);
+        if (classInfo) {
+            // Get day of week from date - consistent with how data.js does it
+            const [year, month, day] = dateStr.split('-').map(num => parseInt(num, 10));
+            const date = new Date(year, month - 1, day); // month is 0-indexed in JS
+            const dayOfWeek = this.dataManager.getDayFromDate(date);
+            
+            // Always check for class-specific conflicts first (these take absolute priority)
+            if (classInfo.conflicts[dayOfWeek] && 
+                classInfo.conflicts[dayOfWeek].includes(Number(period))) {
+                return { valid: false, reason: `Conflict: ${className} cannot be scheduled during this period.` };
             }
         }
+
+        // We don't check for teacher unavailability here because those slots
+        // are still considered valid (though with confirmation required)
+        // This allows teacher unavailable periods to show as green (available)
 
         // Check if placing here would create 3+ consecutive classes
         const consecutiveClasses = this.countConsecutiveClasses(dateStr, period);
         if (consecutiveClasses >= 2) {
-            return { valid: false, reason: 'This would create 3 or more consecutive classes.' };
+            return { valid: false, reason: `Conflict: ${className} would create 3 or more consecutive classes.` };
         }
 
         // Check daily class limit (3-4 per day)
         const dailyClasses = this.countDailyClasses(dateStr);
         if (dailyClasses >= 4) {
-            return { valid: false, reason: 'Daily class limit would be exceeded.' };
+            return { valid: false, reason: `Conflict: ${className} would exceed the daily class limit of 4.` };
         }
 
         return { valid: true };

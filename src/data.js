@@ -340,12 +340,19 @@ class DataManager {
         const classInfo = this.classes.find(c => c.name === className);
         if (!classInfo) return false;
         
-        // Get day of week from date
-        const date = new Date(dateStr);
-        const day = this.getDayFromDate(date);
+        // Get day of week from date - IMPORTANT: Use UTC date parts to avoid timezone issues
+        const [year, month, day] = dateStr.split('-').map(num => parseInt(num, 10));
+        const date = new Date(year, month - 1, day); // month is 0-indexed in JS
+        const dayOfWeek = this.getDayFromDate(date);
         
         // Can't schedule classes on weekends
-        if (day === 'Saturday' || day === 'Sunday') {
+        if (dayOfWeek === 'Saturday' || dayOfWeek === 'Sunday') {
+            return true;
+        }
+        
+        // Check conflicts based on day of week - This is the most fundamental conflict
+        if (classInfo.conflicts[dayOfWeek] && 
+            classInfo.conflicts[dayOfWeek].includes(Number(period))) {
             return true;
         }
         
@@ -354,14 +361,16 @@ class DataManager {
             return true;
         }
         
-        // Check conflicts based on day of week
-        return classInfo.conflicts[day].includes(Number(period));
+        return false;
     }
     
     // Teacher unavailability methods
     isTeacherUnavailable(dateStr, period) {
         // Find the week offset for this date
-        const date = new Date(dateStr);
+        // Use consistent date creation method to avoid timezone issues
+        const [year, month, day] = dateStr.split('-').map(num => parseInt(num, 10));
+        const date = new Date(year, month - 1, day); // month is 0-indexed in JS
+        
         const monday = this.getMondayOfWeek(date);
         const startMonday = this.getMondayOfWeek(this.scheduleStartDate);
         
@@ -378,7 +387,10 @@ class DataManager {
     
     toggleTeacherUnavailability(dateStr, period) {
         // Find the correct week offset for this date to ensure persistence
-        const date = new Date(dateStr);
+        // Use consistent date creation method to avoid timezone issues
+        const [year, month, day] = dateStr.split('-').map(num => parseInt(num, 10));
+        const date = new Date(year, month - 1, day); // month is 0-indexed in JS
+        
         const monday = this.getMondayOfWeek(date);
         const startMonday = this.getMondayOfWeek(this.scheduleStartDate);
         
@@ -407,8 +419,6 @@ class DataManager {
         // Update the data structure
         this.teacherUnavailability[weekOffset] = weekData;
         
-        console.log(`Teacher availability for ${dateStr}, period ${period} set to: ${!isCurrentlyUnavailable}`);
-        console.log(`Week offset for this date: ${weekOffset}`);
         
         return !isCurrentlyUnavailable; // Return the new state
     }
