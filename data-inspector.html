@@ -30,6 +30,21 @@
             padding: 15px;
             border-radius: 5px;
         }
+        
+        #message-box {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background-color: #333;
+            color: white;
+            padding: 15px;
+            border-radius: 5px;
+            z-index: 1000;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+            max-width: 300px;
+            display: none;
+            font-weight: bold;
+        }
         .data-view {
             margin: 10px 0;
             padding: 15px;
@@ -171,13 +186,11 @@
                 if (e.target.checked) {
                     // Start auto-refresh
                     autoRefreshInterval = setInterval(function() {
-                        loadDataFromLocalStorage();
-                        refreshClassesData();
-                        refreshScheduleData();
-                        refreshTeacherData();
-                        updateStorageInfo();
+                        // Use forceReloadFromLocalStorage instead of loadDataFromLocalStorage
+                        // This ensures we're getting the freshest data possible
+                        forceReloadFromLocalStorage();
                     }, 3000); // Refresh every 3 seconds
-                    console.log("Auto-refresh enabled");
+                    console.log("Auto-refresh enabled with force reload");
                 } else {
                     // Stop auto-refresh
                     if (autoRefreshInterval) {
@@ -224,7 +237,19 @@
                 // Reload the DataManager
                 dataManager = new DataManager();
                 
-                // Force load schedule data from localStorage
+                // Force load all data from localStorage
+                console.log("Force reloading all data from localStorage...");
+                
+                // 1. Load classes data
+                const classesData = localStorage.getItem('cooking-classes');
+                console.log("Raw classes data from localStorage:", classesData);
+                
+                if (classesData) {
+                    dataManager.classes = JSON.parse(classesData);
+                    console.log("Classes loaded:", dataManager.classes.length);
+                }
+                
+                // 2. Load schedule data
                 const rawScheduleData = localStorage.getItem('cooking-class-schedule');
                 console.log("Raw schedule data from localStorage:", rawScheduleData);
                 
@@ -235,15 +260,30 @@
                     dataManager.scheduleWeeks = parsedData;
                     
                     console.log("Schedule data loaded directly:", dataManager.scheduleWeeks);
-                    
-                    // Force refresh the UI
-                    refreshScheduleData();
-                    refreshScheduleTable();
-                    
-                    showMessage("Schedule data reloaded from localStorage");
+                    console.log("Week keys:", Object.keys(dataManager.scheduleWeeks));
                 } else {
                     showMessage("No schedule data found in localStorage");
+                    console.warn("No schedule data found in localStorage");
                 }
+                
+                // 3. Load teacher unavailability data
+                const teacherData = localStorage.getItem('teacher-unavailability');
+                console.log("Raw teacher data from localStorage:", teacherData);
+                
+                if (teacherData) {
+                    dataManager.teacherUnavailability = JSON.parse(teacherData);
+                    console.log("Teacher unavailability loaded");
+                }
+                
+                // Force refresh all UI components
+                refreshClassesData();
+                refreshScheduleData();
+                refreshTeacherData();
+                refreshScheduleTable();
+                refreshTeacherTable();
+                updateStorageInfo();
+                
+                showMessage("All data reloaded from localStorage");
             } catch (error) {
                 console.error("Error reloading from localStorage:", error);
                 showMessage("Error reloading data: " + error.message);
@@ -373,28 +413,40 @@
         
         function getScheduledClass(weekOffset, dateStr, period) {
             const scheduleData = dataManager.scheduleWeeks;
+            weekOffset = parseInt(weekOffset); // Ensure weekOffset is a number
+            period = parseInt(period); // Ensure period is a number
             
             console.log("Looking for schedule data:", {
                 weekOffset: weekOffset,
                 dateStr: dateStr,
-                period: period,
-                scheduleData: scheduleData
+                period: period
             });
+            
+            console.log("Available week offsets:", Object.keys(scheduleData));
             
             // Check if there's any data for this week
             if (scheduleData[weekOffset]) {
-                console.log("Week data found:", scheduleData[weekOffset]);
+                console.log("Week data found for offset", weekOffset);
+                console.log("Available dates:", Object.keys(scheduleData[weekOffset]));
                 
                 // Check if there's any data for this date
                 if (scheduleData[weekOffset][dateStr]) {
-                    console.log("Date data found:", scheduleData[weekOffset][dateStr]);
+                    console.log("Date data found for", dateStr);
+                    console.log("Available periods:", Object.keys(scheduleData[weekOffset][dateStr]));
                     
                     // Check if there's any data for this period
                     if (scheduleData[weekOffset][dateStr][period]) {
-                        console.log("Class found:", scheduleData[weekOffset][dateStr][period]);
-                        return scheduleData[weekOffset][dateStr][period];
+                        const className = scheduleData[weekOffset][dateStr][period];
+                        console.log("Class found:", className);
+                        return className;
+                    } else {
+                        console.log("No class scheduled for period", period);
                     }
+                } else {
+                    console.log("No schedule data found for date", dateStr);
                 }
+            } else {
+                console.log("No schedule data found for week offset", weekOffset);
             }
             
             return null;

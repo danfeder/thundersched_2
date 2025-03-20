@@ -7,6 +7,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Make dataManager available globally for the class manager
     window.dataManager = dataManager;
     
+    // Add helper method for data persistence
+    window.saveScheduleToLocalStorage = function() {
+        localStorage.setItem('cooking-class-schedule', JSON.stringify(dataManager.scheduleWeeks));
+        console.log("Schedule explicitly saved to localStorage");
+    };
+    
     // Make render functions available globally
     window.renderUnscheduledClasses = renderUnscheduledClasses;
     window.updateProgress = updateProgress;
@@ -156,6 +162,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                         classElement.addEventListener('dblclick', () => {
                             if (confirm(`Remove ${className} from this time slot?`)) {
                                 dataManager.unscheduleClass(dateStr, period);
+                                
+                                // Explicitly save to localStorage to ensure persistence
+                                if (window.saveScheduleToLocalStorage) {
+                                    window.saveScheduleToLocalStorage();
+                                }
+                                
                                 renderScheduleGrid();
                                 renderUnscheduledClasses();
                                 updateProgress();
@@ -341,6 +353,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             
             // Remove from original position
             dataManager.unscheduleClass(originalDate, originalPeriod);
+            
+            // Explicitly save to localStorage after unscheduling from original position
+            if (window.saveScheduleToLocalStorage) {
+                window.saveScheduleToLocalStorage();
+            }
         }
         
         // First check if there's a class-specific conflict (these always take priority)
@@ -392,6 +409,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (validation.valid) {
             // Schedule the class
             dataManager.scheduleClass(className, dateStr, period);
+            
+            // Explicitly save to localStorage to ensure persistence
+            if (window.saveScheduleToLocalStorage) {
+                window.saveScheduleToLocalStorage();
+            }
             
             // Update UI
             renderScheduleGrid();

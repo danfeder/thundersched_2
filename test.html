@@ -242,45 +242,58 @@
     
     <!-- Test-specific script to add localStorage persistence -->
     <script>
-        // Add localStorage persistence for testing
-        // Override the original scheduleClass and unscheduleClass methods to add persistence
-        
-        // Save the original methods
-        const originalScheduleClass = dataManager.scheduleClass;
-        const originalUnscheduleClass = dataManager.unscheduleClass;
-        const originalToggleTeacherUnavailability = dataManager.toggleTeacherUnavailability;
-        
-        // Create enhanced versions that save to localStorage
-        dataManager.scheduleClass = function(className, dateStr, period) {
-            // Call the original method
-            originalScheduleClass.call(this, className, dateStr, period);
-            
-            // Save to localStorage
-            localStorage.setItem('cooking-class-schedule', JSON.stringify(this.scheduleWeeks));
-            console.log("Schedule saved to localStorage", this.scheduleWeeks);
-        };
-        
-        dataManager.unscheduleClass = function(dateStr, period) {
-            // Call the original method
-            originalUnscheduleClass.call(this, dateStr, period);
-            
-            // Save to localStorage
-            localStorage.setItem('cooking-class-schedule', JSON.stringify(this.scheduleWeeks));
-            console.log("Schedule saved to localStorage after unscheduling");
-        };
-        
-        dataManager.toggleTeacherUnavailability = function(dateStr, period) {
-            // Call the original method
-            const result = originalToggleTeacherUnavailability.call(this, dateStr, period);
-            
-            // Save to localStorage
-            localStorage.setItem('teacher-unavailability', JSON.stringify(this.teacherUnavailability));
-            console.log("Teacher unavailability saved to localStorage");
-            
-            return result;
-        };
-        
-        console.log("Enhanced localStorage persistence added for testing");
+        // Add localStorage persistence for testing after DOM is fully loaded
+        // This ensures dataManager is defined before we try to override its methods
+        document.addEventListener('DOMContentLoaded', function() {
+            // Wait a small amount of time to ensure dataManager is fully initialized
+            setTimeout(function() {
+                // Verify dataManager exists
+                if (!window.dataManager) {
+                    console.error("dataManager is not defined. Cannot add localStorage persistence.");
+                    return;
+                }
+                
+                console.log("Adding localStorage persistence to dataManager methods...");
+                
+                // Save the original methods
+                const originalScheduleClass = window.dataManager.scheduleClass;
+                const originalUnscheduleClass = window.dataManager.unscheduleClass;
+                const originalToggleTeacherUnavailability = window.dataManager.toggleTeacherUnavailability;
+                
+                // Create enhanced versions that save to localStorage
+                window.dataManager.scheduleClass = function(className, dateStr, period) {
+                    // Call the original method
+                    originalScheduleClass.call(this, className, dateStr, period);
+                    
+                    // Save to localStorage
+                    localStorage.setItem('cooking-class-schedule', JSON.stringify(this.scheduleWeeks));
+                    console.log("Schedule saved to localStorage after scheduling class", className, "at", dateStr, "period", period);
+                    console.log("Schedule data:", this.scheduleWeeks);
+                };
+                
+                window.dataManager.unscheduleClass = function(dateStr, period) {
+                    // Call the original method
+                    originalUnscheduleClass.call(this, dateStr, period);
+                    
+                    // Save to localStorage
+                    localStorage.setItem('cooking-class-schedule', JSON.stringify(this.scheduleWeeks));
+                    console.log("Schedule saved to localStorage after unscheduling at", dateStr, "period", period);
+                };
+                
+                window.dataManager.toggleTeacherUnavailability = function(dateStr, period) {
+                    // Call the original method
+                    const result = originalToggleTeacherUnavailability.call(this, dateStr, period);
+                    
+                    // Save to localStorage
+                    localStorage.setItem('teacher-unavailability', JSON.stringify(this.teacherUnavailability));
+                    console.log("Teacher unavailability saved to localStorage");
+                    
+                    return result;
+                };
+                
+                console.log("Enhanced localStorage persistence added for testing");
+            }, 500); // Give app.js time to initialize dataManager
+        });
     </script>
     
     <script>
