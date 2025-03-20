@@ -144,16 +144,56 @@
     <script src="src/data.js"></script>
     <script src="src/scheduler.js"></script>
     <script>
+        // Initialize DataManager
+        let dataManager;
+        
         // Initialize the page
         document.addEventListener('DOMContentLoaded', function() {
+            // Create the DataManager
+            dataManager = new DataManager();
+            
+            // Load any existing data from localStorage
+            loadDataFromLocalStorage();
+            
+            // Refresh the UI
             refreshClassesData();
             refreshScheduleData();
             refreshTeacherData();
             updateStorageInfo();
         });
+        
+        function loadDataFromLocalStorage() {
+            try {
+                // Load classes
+                const classesData = localStorage.getItem('cooking-classes');
+                if (classesData) {
+                    dataManager.classes = JSON.parse(classesData);
+                }
+                
+                // Load schedule
+                const scheduleData = localStorage.getItem('cooking-class-schedule');
+                if (scheduleData) {
+                    dataManager.scheduleWeeks = JSON.parse(scheduleData);
+                }
+                
+                // Load teacher unavailability
+                const teacherData = localStorage.getItem('teacher-unavailability');
+                if (teacherData) {
+                    dataManager.teacherUnavailability = JSON.parse(teacherData);
+                }
+                
+                console.log('Data loaded from localStorage:', {
+                    classes: dataManager.classes.length,
+                    schedule: Object.keys(dataManager.scheduleWeeks).length,
+                    teacherUnavailability: Object.keys(dataManager.teacherUnavailability).length
+                });
+            } catch (error) {
+                console.error('Error loading data from localStorage:', error);
+            }
+        }
 
         function refreshClassesData() {
-            const classesData = window.getClasses();
+            const classesData = dataManager.getClasses();
             document.getElementById('classes-data-view').textContent = JSON.stringify(classesData, null, 2);
             renderConflictsTable(classesData);
         }
@@ -179,8 +219,8 @@
                 for (let weekday = 0; weekday < 5; weekday++) {
                     for (let period = 1; period <= 8; period++) {
                         const hasConflict = classData.conflicts && 
-                                           classData.conflicts[weekday] && 
-                                           classData.conflicts[weekday].includes(period);
+                                           classData.conflicts[weekdays[weekday]] && 
+                                           classData.conflicts[weekdays[weekday]].includes(period);
                         
                         if (hasConflict) {
                             html += `<td class="conflict-cell">X</td>`;
@@ -198,7 +238,7 @@
         }
 
         function refreshScheduleData() {
-            const scheduleData = window.getScheduleData();
+            const scheduleData = dataManager.scheduleWeeks;
             document.getElementById('schedule-data-view').textContent = JSON.stringify(scheduleData, null, 2);
             refreshScheduleTable();
         }
@@ -206,14 +246,13 @@
         function refreshScheduleTable() {
             const weekOffset = parseInt(document.getElementById('week-offset-select').value);
             const container = document.getElementById('schedule-table-container');
-            const weekDates = window.getWeekDates(weekOffset);
+            const weekDates = dataManager.getWeekDates(weekOffset);
             
             // Format date strings
             const dateStrings = [];
-            for (let i = 0; i < 5; i++) {
-                const date = new Date(weekDates.startDate);
-                date.setDate(date.getDate() + i);
-                dateStrings.push(window.formatDate(date));
+            for (let i = 0; i < weekDates.length; i++) {
+                const date = weekDates[i];
+                dateStrings.push(dataManager.getFormattedDate(date));
             }
             
             let html = '<table>';
@@ -241,7 +280,7 @@
         }
         
         function getScheduledClass(weekOffset, dateStr, period) {
-            const scheduleData = window.getScheduleData();
+            const scheduleData = dataManager.scheduleWeeks;
             if (scheduleData[weekOffset] && 
                 scheduleData[weekOffset][dateStr] && 
                 scheduleData[weekOffset][dateStr][period]) {
@@ -251,7 +290,7 @@
         }
 
         function refreshTeacherData() {
-            const teacherData = window.getTeacherUnavailabilityData();
+            const teacherData = dataManager.teacherUnavailability;
             document.getElementById('teacher-data-view').textContent = JSON.stringify(teacherData, null, 2);
             refreshTeacherTable();
         }
@@ -259,14 +298,13 @@
         function refreshTeacherTable() {
             const weekOffset = parseInt(document.getElementById('teacher-week-select').value);
             const container = document.getElementById('teacher-table-container');
-            const weekDates = window.getWeekDates(weekOffset);
+            const weekDates = dataManager.getWeekDates(weekOffset);
             
             // Format date strings
             const dateStrings = [];
-            for (let i = 0; i < 5; i++) {
-                const date = new Date(weekDates.startDate);
-                date.setDate(date.getDate() + i);
-                dateStrings.push(window.formatDate(date));
+            for (let i = 0; i < weekDates.length; i++) {
+                const date = weekDates[i];
+                dateStrings.push(dataManager.getFormattedDate(date));
             }
             
             let html = '<table>';
@@ -296,7 +334,7 @@
         }
         
         function isTeacherUnavailableForDate(weekOffset, dateStr, period) {
-            const teacherData = window.getTeacherUnavailabilityData();
+            const teacherData = dataManager.teacherUnavailability;
             if (teacherData[weekOffset] && 
                 teacherData[weekOffset][dateStr] && 
                 teacherData[weekOffset][dateStr][period]) {
@@ -312,6 +350,9 @@
                 localStorage.removeItem('teacher-unavailability');
                 alert('Local storage cleared successfully.');
                 updateStorageInfo();
+                
+                // Reset the dataManager
+                dataManager = new DataManager();
                 
                 // Refresh all data views
                 refreshClassesData();
