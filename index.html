@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cooking Class Scheduler</title>
     <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/analytics.css">
 </head>
 <body>
     <header>
@@ -22,6 +23,7 @@
                     <button id="config-btn" class="btn btn-secondary">Configure Constraints</button>
                     <button id="export-btn" class="btn btn-secondary">Export Schedule</button>
                     <button id="manage-classes-btn" class="btn btn-secondary" onclick="window.openClassManager()">Manage Classes</button>
+                    <button id="analytics-btn" class="btn btn-secondary">Schedule Analytics</button>
                     <div class="btn-group schedule-management">
                         <button id="save-schedule-btn" class="btn btn-secondary">Save Schedule</button>
                         <button id="load-schedule-btn" class="btn btn-secondary">Load Schedule</button>
@@ -375,8 +377,65 @@
         </div>
     </div>
 
+    <!-- Analytics Modal -->
+    <div id="analytics-modal" class="modal">
+        <div class="modal-content analytics-modal-content">
+            <span class="close">&times;</span>
+            <h2>Schedule Analytics</h2>
+            
+            <div class="analytics-dashboard">
+                <div class="metrics-overview">
+                    <div class="metric-card">
+                        <h3>Schedule Span</h3>
+                        <div class="metric-value" id="metric-span">0 days</div>
+                        <div class="metric-detail" id="metric-span-detail"></div>
+                    </div>
+                    
+                    <div class="metric-card">
+                        <h3>Balance Score</h3>
+                        <div class="metric-value" id="metric-balance">0%</div>
+                        <div class="metric-gauge" id="balance-gauge">
+                            <div class="gauge-fill" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="metric-card">
+                        <h3>Overall Quality</h3>
+                        <div class="metric-value" id="metric-quality">0%</div>
+                        <div class="metric-gauge" id="quality-gauge">
+                            <div class="gauge-fill" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="analytics-header">
+                    <h3>Schedule Visualization</h3>
+                    <div class="view-controls">
+                        <select id="analytics-view-selector">
+                            <option value="heatmap">Class Distribution</option>
+                            <option value="periods">Period Utilization</option>
+                            <option value="constraints">Constraint Pressure</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="visualization-container" id="analytics-visualization">
+                    <!-- Visualization will be rendered here -->
+                </div>
+                
+                <div class="analytics-insights">
+                    <h3>Schedule Insights</h3>
+                    <div id="analytics-insights-content" class="insights-content">
+                        <!-- Insights will be displayed here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="src/data.js"></script>
     <script src="src/scheduler.js"></script>
+    <script src="src/analytics.js"></script>
     <script src="src/app.js"></script>
     <script src="src/class-manager.js"></script>
 </body>

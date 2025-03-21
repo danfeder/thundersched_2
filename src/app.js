@@ -74,6 +74,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('config-btn').addEventListener('click', showConfigModal);
     document.getElementById('save-schedule-btn').addEventListener('click', showSaveScheduleModal);
     document.getElementById('load-schedule-btn').addEventListener('click', showLoadScheduleModal);
+    document.getElementById('analytics-btn').addEventListener('click', showAnalyticsModal);
     
     // This event listener was causing duplicate submissions
     // See the setTimeout below that adds onsubmit handler
@@ -1716,5 +1717,375 @@ document.addEventListener('DOMContentLoaded', async () => {
         } else {
             showMessage('error', `Failed to delete schedule "${name}". Please try again.`);
         }
+    }
+    
+    // ---- Analytics Functions ----
+    
+    function showAnalyticsModal() {
+        const modal = document.getElementById('analytics-modal');
+        
+        // Show the modal
+        modal.style.display = 'block';
+        
+        // Initialize the analytics view
+        updateAnalyticsView();
+        
+        // Add change event to view selector
+        document.getElementById('analytics-view-selector').addEventListener('change', updateAnalyticsView);
+    }
+    
+    function updateAnalyticsView() {
+        try {
+            // Create COPIES of data to prevent accidental modification
+            const scheduleCopy = JSON.parse(JSON.stringify(dataManager.scheduleWeeks));
+            const constraintsCopy = JSON.parse(JSON.stringify(dataManager.getConfig()));
+            
+            // Calculate metrics
+            const metrics = ScheduleAnalytics.calculateMetrics(scheduleCopy, constraintsCopy);
+            
+            // Update UI with metrics
+            updateMetricsDisplay(metrics);
+            
+            // Update visualization based on currently selected view
+            updateVisualization(metrics);
+            
+            // Update insights
+            updateInsights(metrics);
+        } catch (error) {
+            console.error('Error updating analytics (safely contained):', error);
+            
+            // Show fallback content if there's an error
+            document.getElementById('metric-span').textContent = 'Unavailable';
+            document.getElementById('metric-balance').textContent = 'Unavailable';
+            document.getElementById('metric-quality').textContent = 'Unavailable';
+            document.getElementById('analytics-insights-content').innerHTML = '<p>Unable to generate analytics at this time. Please try again later.</p>';
+        }
+    }
+    
+    function updateMetricsDisplay(metrics) {
+        // Update schedule span
+        document.getElementById('metric-span').textContent = metrics.scheduleSpan + ' days';
+        
+        // Calculate and display average balance score
+        let totalScore = 0;
+        let dayCount = 0;
+        
+        Object.values(metrics.dailyBalance).forEach(dayData => {
+            totalScore += dayData.score;
+            dayCount++;
+        });
+        
+        const avgBalance = dayCount > 0 ? Math.round(totalScore / dayCount) : 0;
+        document.getElementById('metric-balance').textContent = avgBalance + '%';
+        document.getElementById('balance-gauge').querySelector('.gauge-fill').style.width = avgBalance + '%';
+        
+        // Update overall quality
+        document.getElementById('metric-quality').textContent = metrics.overallQuality + '%';
+        document.getElementById('quality-gauge').querySelector('.gauge-fill').style.width = metrics.overallQuality + '%';
+    }
+    
+    function updateVisualization(metrics) {
+        const container = document.getElementById('analytics-visualization');
+        const viewType = document.getElementById('analytics-view-selector').value;
+        
+        // Clear container
+        container.innerHTML = '';
+        
+        try {
+            switch (viewType) {
+                case 'heatmap':
+                    renderHeatmapVisualization(container, metrics);
+                    break;
+                case 'periods':
+                    renderPeriodUtilizationVisualization(container, metrics);
+                    break;
+                case 'constraints':
+                    renderConstraintVisualization(container, metrics);
+                    break;
+                default:
+                    renderHeatmapVisualization(container, metrics);
+            }
+        } catch (error) {
+            console.error('Visualization error (safely contained):', error);
+            container.innerHTML = '<div class="error-message">Visualization unavailable</div>';
+        }
+    }
+    
+    function renderHeatmapVisualization(container, metrics) {
+        // Get all dates that have balance data
+        const dates = Object.keys(metrics.dailyBalance).sort();
+        
+        // Skip if no dates
+        if (dates.length === 0) {
+            container.innerHTML = '<div class="info-message">No scheduled classes to visualize.</div>';
+            return;
+        }
+        
+        // Create heatmap container
+        const heatmapContainer = document.createElement('div');
+        heatmapContainer.className = 'heatmap-container';
+        
+        // Add empty top-left cell
+        heatmapContainer.appendChild(createElementWithClass('div', 'heatmap-header', ''));
+        
+        // Add date headers
+        dates.forEach(dateStr => {
+            const date = new Date(dateStr);
+            const options = { weekday: 'short', month: 'short', day: 'numeric' };
+            const formattedDate = date.toLocaleDateString(undefined, options);
+            
+            const header = createElementWithClass('div', 'heatmap-header', formattedDate);
+            heatmapContainer.appendChild(header);
+        });
+        
+        // Add rows for each period
+        for (let period = 1; period <= 8; period++) {
+            // Add period label
+            heatmapContainer.appendChild(createElementWithClass('div', 'heatmap-period', `P${period}`));
+            
+            // Add cells for each date
+            dates.forEach(dateStr => {
+                const weekOffset = findWeekOffsetForDate(dateStr);
+                let className = '';
+                let cellClass = 'heatmap-cell empty';
+                
+                // Check if a class is scheduled in this slot
+                if (weekOffset !== null && 
+                    dataManager.scheduleWeeks[weekOffset] && 
+                    dataManager.scheduleWeeks[weekOffset][dateStr] && 
+                    dataManager.scheduleWeeks[weekOffset][dateStr][period]) {
+                    
+                    className = dataManager.scheduleWeeks[weekOffset][dateStr][period];
+                    
+                    // Cell class based on day balance status
+                    const dayStatus = metrics.dailyBalance[dateStr]?.status || 'balanced';
+                    cellClass = `heatmap-cell ${dayStatus}`;
+                }
+                
+                const cell = createElementWithClass('div', cellClass, className);
+                heatmapContainer.appendChild(cell);
+            });
+        }
+        
+        container.appendChild(heatmapContainer);
+    }
+    
+    function renderPeriodUtilizationVisualization(container, metrics) {
+        const periodData = metrics.periodUtilization;
+        
+        // Create a simple bar chart showing period utilization
+        const chartContainer = document.createElement('div');
+        chartContainer.className = 'period-chart-container';
+        
+        // Add title
+        const title = document.createElement('h3');
+        title.textContent = 'Period Utilization';
+        chartContainer.appendChild(title);
+        
+        // Create chart
+        const chart = document.createElement('div');
+        chart.className = 'period-chart';
+        
+        for (let period = 1; period <= 8; period++) {
+            const data = periodData[period];
+            
+            const barContainer = document.createElement('div');
+            barContainer.className = 'period-bar-container';
+            
+            const label = document.createElement('div');
+            label.className = 'period-label';
+            label.textContent = `Period ${period}`;
+            
+            const bar = document.createElement('div');
+            bar.className = 'period-bar';
+            
+            const fill = document.createElement('div');
+            fill.className = 'period-bar-fill';
+            fill.style.width = `${data.percentage}%`;
+            
+            const value = document.createElement('div');
+            value.className = 'period-value';
+            value.textContent = `${Math.round(data.percentage)}% (${data.count})`;
+            
+            bar.appendChild(fill);
+            barContainer.appendChild(label);
+            barContainer.appendChild(bar);
+            barContainer.appendChild(value);
+            
+            chart.appendChild(barContainer);
+        }
+        
+        chartContainer.appendChild(chart);
+        container.appendChild(chartContainer);
+    }
+    
+    function renderConstraintVisualization(container, metrics) {
+        const constraintData = metrics.constraintPressure;
+        
+        // Create container
+        const constraintContainer = document.createElement('div');
+        constraintContainer.className = 'constraint-chart-container';
+        
+        // Add title
+        const title = document.createElement('h3');
+        title.textContent = 'Constraint Pressure';
+        constraintContainer.appendChild(title);
+        
+        // Daily constraint section
+        const dailySection = document.createElement('div');
+        dailySection.className = 'constraint-section';
+        
+        const dailyTitle = document.createElement('h4');
+        dailyTitle.textContent = 'Daily Class Load';
+        dailySection.appendChild(dailyTitle);
+        
+        // Create chart for daily constraints
+        const dailyDates = Object.keys(constraintData.daily).sort();
+        const dailyChart = document.createElement('div');
+        dailyChart.className = 'daily-constraint-chart';
+        
+        dailyDates.forEach(dateStr => {
+            const data = constraintData.daily[dateStr];
+            const date = new Date(dateStr);
+            const dayName = date.toLocaleDateString(undefined, { weekday: 'short' });
+            
+            const barContainer = document.createElement('div');
+            barContainer.className = 'constraint-bar-container';
+            
+            const label = document.createElement('div');
+            label.className = 'constraint-label';
+            label.textContent = `${dayName} ${date.getDate()}`;
+            
+            const bar = document.createElement('div');
+            bar.className = 'constraint-bar';
+            
+            const fill = document.createElement('div');
+            fill.className = 'constraint-bar-fill';
+            fill.style.width = `${data.pressure}%`;
+            
+            // Color based on pressure (green → yellow → red)
+            if (data.pressure < 70) {
+                fill.style.backgroundColor = '#81c784'; // Light green
+            } else if (data.pressure < 90) {
+                fill.style.backgroundColor = '#ffd54f'; // Yellow
+            } else {
+                fill.style.backgroundColor = '#e57373'; // Light red
+            }
+            
+            const value = document.createElement('div');
+            value.className = 'constraint-value';
+            value.textContent = `${data.count}/${data.limit}`;
+            
+            bar.appendChild(fill);
+            barContainer.appendChild(label);
+            barContainer.appendChild(bar);
+            barContainer.appendChild(value);
+            
+            dailyChart.appendChild(barContainer);
+        });
+        
+        dailySection.appendChild(dailyChart);
+        constraintContainer.appendChild(dailySection);
+        
+        // Weekly constraint section
+        const weeklySection = document.createElement('div');
+        weeklySection.className = 'constraint-section';
+        
+        const weeklyTitle = document.createElement('h4');
+        weeklyTitle.textContent = 'Weekly Class Load';
+        weeklySection.appendChild(weeklyTitle);
+        
+        // Create chart for weekly constraints
+        const weeklyOffsets = Object.keys(constraintData.weekly).sort();
+        const weeklyChart = document.createElement('div');
+        weeklyChart.className = 'weekly-constraint-chart';
+        
+        weeklyOffsets.forEach(offset => {
+            const data = constraintData.weekly[offset];
+            
+            const barContainer = document.createElement('div');
+            barContainer.className = 'constraint-bar-container';
+            
+            const label = document.createElement('div');
+            label.className = 'constraint-label';
+            label.textContent = `Week ${parseInt(offset) + 1}`;
+            
+            const bar = document.createElement('div');
+            bar.className = 'constraint-bar';
+            
+            const fill = document.createElement('div');
+            fill.className = 'constraint-bar-fill';
+            fill.style.width = `${data.pressure}%`;
+            
+            // Color based on pressure (blue → green → yellow → red)
+            if (data.count < data.minLimit) {
+                fill.style.backgroundColor = '#64b5f6'; // Blue - below minimum
+            } else if (data.pressure < 70) {
+                fill.style.backgroundColor = '#81c784'; // Green - comfortably within range
+            } else if (data.pressure < 90) {
+                fill.style.backgroundColor = '#ffd54f'; // Yellow - approaching maximum
+            } else {
+                fill.style.backgroundColor = '#e57373'; // Red - at or over maximum
+            }
+            
+            const value = document.createElement('div');
+            value.className = 'constraint-value';
+            value.textContent = `${data.count} (${data.minLimit}-${data.maxLimit})`;
+            
+            bar.appendChild(fill);
+            barContainer.appendChild(label);
+            barContainer.appendChild(bar);
+            barContainer.appendChild(value);
+            
+            weeklyChart.appendChild(barContainer);
+        });
+        
+        weeklySection.appendChild(weeklyChart);
+        constraintContainer.appendChild(weeklySection);
+        
+        container.appendChild(constraintContainer);
+    }
+    
+    function updateInsights(metrics) {
+        const container = document.getElementById('analytics-insights-content');
+        
+        try {
+            // Generate insights
+            const insights = ScheduleAnalytics.generateInsights(metrics);
+            
+            // Clear container
+            container.innerHTML = '';
+            
+            if (insights.length === 0) {
+                container.innerHTML = '<p>No analytics insights available for this schedule.</p>';
+                return;
+            }
+            
+            // Create insights list
+            const list = document.createElement('ul');
+            list.className = 'insights-list';
+            
+            insights.forEach(insight => {
+                const item = document.createElement('li');
+                item.className = `insight-item insight-${insight.type}`;
+                item.textContent = insight.message;
+                list.appendChild(item);
+            });
+            
+            container.appendChild(list);
+        } catch (error) {
+            console.error('Error generating insights (safely contained):', error);
+            container.innerHTML = '<p>Insights unavailable</p>';
+        }
+    }
+    
+    function findWeekOffsetForDate(dateStr) {
+        // Find which week offset contains this date
+        for (const weekOffset in dataManager.scheduleWeeks) {
+            if (dataManager.scheduleWeeks[weekOffset][dateStr]) {
+                return weekOffset;
+            }
+        }
+        return null;
     }
 });

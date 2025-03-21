@@ -1,0 +1,288 @@
+/* Analytics Dashboard Styles */
+.analytics-dashboard {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1rem;
+}
+
+.analytics-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.view-controls {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.metrics-overview {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+}
+
+.metric-card {
+    background-color: white;
+    border-radius: 4px;
+    padding: 1rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    flex: 1;
+    min-width: 200px;
+    display: flex;
+    flex-direction: column;
+}
+
+.metric-card h3 {
+    margin-top: 0;
+    margin-bottom: 0.5rem;
+    font-size: 1rem;
+    color: #555;
+}
+
+.metric-value {
+    font-size: 1.8rem;
+    font-weight: bold;
+    margin: 0.5rem 0;
+}
+
+.metric-detail {
+    font-size: 0.9rem;
+    color: #666;
+    margin-top: auto;
+}
+
+.metric-gauge {
+    height: 8px;
+    background-color: #e0e0e0;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: 0.5rem;
+}
+
+.gauge-fill {
+    height: 100%;
+    background-color: #4caf50;
+    transition: width 0.3s ease;
+}
+
+.visualization-container {
+    background-color: white;
+    border-radius: 4px;
+    padding: 1rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    height: 400px;
+    margin-bottom: 1rem;
+    overflow: auto;
+}
+
+.heatmap-container {
+    display: grid;
+    grid-template-columns: auto repeat(5, 1fr);
+    gap: 2px;
+    font-size: 0.8rem;
+}
+
+.heatmap-header {
+    background-color: #f0f0f0;
+    padding: 0.5rem;
+    text-align: center;
+    font-weight: bold;
+}
+
+.heatmap-period {
+    background-color: #f0f0f0;
+    padding: 0.5rem;
+    text-align: center;
+}
+
+.heatmap-cell {
+    padding: 0.5rem;
+    text-align: center;
+    min-height: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.heatmap-cell.empty {
+    background-color: #f5f5f5;
+}
+
+.heatmap-cell.underutilized {
+    background-color: #ffebee;
+}
+
+.heatmap-cell.balanced {
+    background-color: #e8f5e9;
+}
+
+.heatmap-cell.nearCapacity {
+    background-color: #fff8e1;
+}
+
+.analytics-insights {
+    background-color: white;
+    border-radius: 4px;
+    padding: 1rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.analytics-insights h3 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+}
+
+.insights-content {
+    padding: 1rem;
+    background-color: #f9f9f9;
+    border-left: 4px solid #2196f3;
+}
+
+.insights-list {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+}
+
+.insight-item {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #eee;
+}
+
+.insight-item:last-child {
+    border-bottom: none;
+}
+
+.insight-span {
+    color: #1976d2;
+}
+
+.insight-balance {
+    color: #388e3c;
+}
+
+.insight-utilization {
+    color: #f57c00;
+}
+
+.insight-quality {
+    color: #7b1fa2;
+}
+
+.loading-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #666;
+}
+
+.error-message {
+    color: #d32f2f;
+    padding: 1rem;
+    background-color: #ffebee;
+    border-radius: 4px;
+}
+
+.info-message {
+    color: #1976d2;
+    padding: 1rem;
+    background-color: #e3f2fd;
+    border-radius: 4px;
+}
+
+/* Bar charts for period utilization */
+.period-chart-container,
+.constraint-chart-container {
+    width: 100%;
+    height: 100%;
+    overflow-y: auto;
+}
+
+.period-chart,
+.daily-constraint-chart,
+.weekly-constraint-chart {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-top: 1rem;
+}
+
+.period-bar-container,
+.constraint-bar-container {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.period-label,
+.constraint-label {
+    width: 80px;
+    font-size: 0.85rem;
+    text-align: right;
+}
+
+.period-bar,
+.constraint-bar {
+    flex-grow: 1;
+    height: 20px;
+    background-color: #f0f0f0;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.period-bar-fill,
+.constraint-bar-fill {
+    height: 100%;
+    background-color: #64b5f6;
+    transition: width 0.3s ease;
+}
+
+.period-value,
+.constraint-value {
+    width: 80px;
+    font-size: 0.85rem;
+}
+
+/* Constraint visualization sections */
+.constraint-section {
+    margin-bottom: 2rem;
+}
+
+.constraint-section h4 {
+    margin-top: 2rem;
+    margin-bottom: 0.5rem;
+    color: #555;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 0.5rem;
+}
+
+/* Analytics modal sizing */
+.analytics-modal-content {
+    width: 80%;
+    max-width: 1200px;
+    max-height: 90%;
+    overflow-y: auto;
+}
+
+/* Tab styling */
+.tab-buttons {
+    display: flex;
+    margin-bottom: 1rem;
+}
+
+.tab-button {
+    padding: 0.5rem 1rem;
+    background-color: #f0f0f0;
+    border: none;
+    cursor: pointer;
+}
+
+.tab-button.active {
+    background-color: #2196f3;
+    color: white;
+}
