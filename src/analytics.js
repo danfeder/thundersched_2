@@ -193,6 +193,88 @@ const ScheduleAnalytics = (function() {
      * @param {Object} metrics - All calculated metrics
      * @return {Number} Overall quality score (0-100)
      */
+    /**
+     * Identify opportunities to compress the schedule
+     * @param {Object} metrics - The calculated metrics
+     * @return {Object} Compression opportunities
+     */
+    function identifyCompressionOpportunities(metrics) {
+        // Find date ranges with low utilization that could be compressed
+        const sparseRanges = [];
+        const underutilizedDays = Object.entries(metrics.dailyBalance)
+            .filter(([_, data]) => data.status === 'underutilized')
+            .map(([date, _]) => date)
+            .sort(); // Sort by date
+            
+        if (underutilizedDays.length < 2) {
+            return { potentialDaysReduction: 0, dateRanges: [] };
+        }
+        
+        // Convert to Date objects for easier manipulation
+        const dates = underutilizedDays.map(dateStr => new Date(dateStr));
+        
+        // Find consecutive spans of underutilized days
+        let rangeStart = dates[0];
+        let rangeEnd = dates[0];
+        const ranges = [];
+        
+        for (let i = 1; i < dates.length; i++) {
+            const currentDate = dates[i];
+            const prevDate = dates[i-1];
+            
+            // Check if dates are consecutive or close (within 1-2 days)
+            const daysDiff = (currentDate - prevDate) / (1000 * 60 * 60 * 24);
+            
+            if (daysDiff <= 2) {
+                // Part of the current range
+                rangeEnd = currentDate;
+            } else {
+                // End of a range, start a new one
+                if ((rangeEnd - rangeStart) / (1000 * 60 * 60 * 24) >= 2) {
+                    // Only consider ranges of at least 3 days
+                    ranges.push({
+                        start: formatDate(rangeStart),
+                        end: formatDate(rangeEnd),
+                        days: Math.round((rangeEnd - rangeStart) / (1000 * 60 * 60 * 24)) + 1
+                    });
+                }
+                rangeStart = currentDate;
+                rangeEnd = currentDate;
+            }
+        }
+        
+        // Add the last range if significant
+        if ((rangeEnd - rangeStart) / (1000 * 60 * 60 * 24) >= 2) {
+            ranges.push({
+                start: formatDate(rangeStart),
+                end: formatDate(rangeEnd),
+                days: Math.round((rangeEnd - rangeStart) / (1000 * 60 * 60 * 24)) + 1
+            });
+        }
+        
+        // Estimate potential reduction days (about 50% of underutilized days could be saved)
+        const potentialReduction = Math.floor(underutilizedDays.length * 0.5);
+        
+        return {
+            potentialDaysReduction: potentialReduction,
+            dateRanges: ranges
+        };
+    }
+    
+    /**
+     * Format a date as YYYY-MM-DD
+     * @param {Date} date - The date to format
+     * @return {string} Formatted date
+     */
+    function formatDate(date) {
+        if (typeof date === 'string') return date; // Already formatted
+        
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+    
     function calculateOverallQuality(metrics) {
         // Calculate average balance score
         let totalBalanceScore = 0;
@@ -240,6 +322,95 @@ const ScheduleAnalytics = (function() {
             (avgPressureScore * 0.3) +
             (periodVarianceScore * 0.2)
         );
+    }
+    
+    /**
+     * Generate optimization suggestions based on metrics
+     * @param {Object} metrics - Calculated metrics
+     * @return {Array} List of suggestions
+     */
+    function generateSuggestions(metrics) {
+        const suggestions = [];
+        
+        // Check for underutilized days
+        const underutilizedDays = Object.entries(metrics.dailyBalance)
+            .filter(([_, dayData]) => dayData.status === 'underutilized')
+            .map(([date, _]) => date);
+        
+        if (underutilizedDays.length > 0) {
+            // Format dates for display
+            const formattedDates = underutilizedDays.slice(0, 3).map(dateStr => {
+                const date = new Date(dateStr);
+                return date.toLocaleDateString(undefined, {weekday: 'short', month: 'short', day: 'numeric'});
+            });
+            
+            const dateText = formattedDates.join(', ') + 
+                (underutilizedDays.length > 3 ? ` and ${underutilizedDays.length - 3} more` : '');
+            
+            suggestions.push({
+                type: 'balance',
+                message: 'Consider adding more classes to underutilized days to improve balance.',
+                details: `Underutilized days: ${dateText}`
+            });
+        }
+        
+        // Check for compression opportunities
+        const compressionOps = identifyCompressionOpportunities(metrics);
+        if (compressionOps.potentialDaysReduction > 0 && compressionOps.dateRanges.length > 0) {
+            const ranges = compressionOps.dateRanges.map(range => {
+                const start = new Date(range.start);
+                const end = new Date(range.end);
+                return `${start.toLocaleDateString(undefined, {month: 'short', day: 'numeric'})} to ${end.toLocaleDateString(undefined, {month: 'short', day: 'numeric'})}`;
+            }).join(', ');
+            
+            suggestions.push({
+                type: 'compression',
+                message: 'Consider consolidating classes to reduce schedule span.',
+                details: `Sparse date ranges: ${ranges}`
+            });
+        }
+        
+        // Check for period utilization imbalance
+        const periodUtilization = metrics.periodUtilization;
+        const lowPeriods = [];
+        const highPeriods = [];
+        
+        Object.entries(periodUtilization).forEach(([period, data]) => {
+            if (data.percentage < 30) {
+                lowPeriods.push(period);
+            } else if (data.percentage > 80) {
+                highPeriods.push(period);
+            }
+        });
+        
+        if (lowPeriods.length > 0 && highPeriods.length > 0) {
+            suggestions.push({
+                type: 'utilization',
+                message: 'Consider redistributing classes across periods for better balance.',
+                details: `High-use periods: ${highPeriods.join(', ')}. Low-use periods: ${lowPeriods.join(', ')}.`
+            });
+        }
+        
+        // Weekly balance suggestions
+        const weeklyPressure = metrics.constraintPressure.weekly;
+        const unbalancedWeeks = [];
+        
+        Object.entries(weeklyPressure).forEach(([offset, data]) => {
+            if (data.count < data.minLimit) {
+                const weekNum = parseInt(offset) + 1;
+                unbalancedWeeks.push(`Week ${weekNum} (${data.count}/${data.minLimit})`);
+            }
+        });
+        
+        if (unbalancedWeeks.length > 0) {
+            suggestions.push({
+                type: 'weekly',
+                message: 'Some weeks are below the recommended class minimum.',
+                details: `Weeks below minimum: ${unbalancedWeeks.join(', ')}`
+            });
+        }
+        
+        return suggestions;
     }
     
     // Public API - only way main app interacts with this module
@@ -351,6 +522,15 @@ const ScheduleAnalytics = (function() {
                 });
             }
             
+            // Compression insights
+            const compressionOps = identifyCompressionOpportunities(metrics);
+            if (compressionOps.potentialDaysReduction > 0) {
+                insights.push({
+                    type: 'compression',
+                    message: `There may be an opportunity to reduce the schedule span by approximately ${compressionOps.potentialDaysReduction} days while maintaining balance.`
+                });
+            }
+            
             // Quality score insight
             insights.push({
                 type: 'quality',
@@ -358,6 +538,17 @@ const ScheduleAnalytics = (function() {
             });
             
             return insights;
+        },
+        
+        /**
+         * Generate optimization suggestions based on metrics
+         * @param {Object} metrics - Previously calculated metrics
+         * @return {Array} Actionable suggestions for improving the schedule
+         */
+        generateSuggestions: function(metrics) {
+            if (metrics.error) return [];
+            
+            return generateSuggestions(metrics);
         }
     };
 })();

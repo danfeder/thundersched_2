@@ -1732,6 +1732,58 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         // Add change event to view selector
         document.getElementById('analytics-view-selector').addEventListener('change', updateAnalyticsView);
+        
+        // Add event listener for generate suggestions button
+        document.getElementById('generate-suggestions-btn').addEventListener('click', generateAndDisplaySuggestions);
+    }
+    
+    function generateAndDisplaySuggestions() {
+        const container = document.getElementById('suggestions-container');
+        
+        try {
+            // Create copies of data to prevent accidental modification
+            const scheduleCopy = JSON.parse(JSON.stringify(dataManager.scheduleWeeks));
+            const constraintsCopy = JSON.parse(JSON.stringify(dataManager.getConfig()));
+            
+            // Get current metrics
+            const metrics = ScheduleAnalytics.calculateMetrics(scheduleCopy, constraintsCopy);
+            
+            // Generate suggestions
+            const suggestions = ScheduleAnalytics.generateSuggestions(metrics);
+            
+            // Clear container
+            container.innerHTML = '';
+            
+            if (suggestions.length === 0) {
+                container.innerHTML = '<p>No optimization suggestions available. Your schedule appears to be well-optimized!</p>';
+                return;
+            }
+            
+            // Create suggestions list
+            const list = document.createElement('div');
+            list.className = 'suggestions-list';
+            
+            suggestions.forEach(suggestion => {
+                const item = document.createElement('div');
+                item.className = `suggestion-item suggestion-${suggestion.type}`;
+                
+                const title = document.createElement('h4');
+                title.textContent = suggestion.message;
+                
+                const details = document.createElement('p');
+                details.textContent = suggestion.details;
+                details.className = 'suggestion-details';
+                
+                item.appendChild(title);
+                item.appendChild(details);
+                list.appendChild(item);
+            });
+            
+            container.appendChild(list);
+        } catch (error) {
+            console.error('Error generating suggestions (safely contained):', error);
+            container.innerHTML = '<p>Unable to generate suggestions at this time.</p>';
+        }
     }
     
     function updateAnalyticsView() {
