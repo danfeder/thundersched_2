@@ -59,12 +59,23 @@ const ScheduleAnalytics = (function() {
                 const maxDistance = Math.max(idealLoad, maxClassesPerDay - idealLoad);
                 const score = 100 * (1 - (distanceFromIdeal / maxDistance));
                 
+                // More descriptive status classifications with expanded thresholds
+                let status;
+                if (classCount < idealLoad * 0.7) { // Was 0.5
+                    status = 'underutilized';
+                } else if (classCount > maxClassesPerDay * 0.85) { // Was 0.9
+                    status = 'nearCapacity';
+                } else if (Math.abs(classCount - idealLoad) < (idealLoad * 0.1)) {
+                    status = 'optimal';
+                } else {
+                    status = 'balanced';
+                }
+                
                 dailyScores[dateStr] = {
                     classCount,
                     idealLoad,
                     score: Math.max(0, Math.min(100, score)), // Clamp between 0-100
-                    status: classCount < idealLoad * 0.5 ? 'underutilized' :
-                           classCount > maxClassesPerDay * 0.9 ? 'nearCapacity' : 'balanced'
+                    status: status
                 };
             });
         });
@@ -200,20 +211,21 @@ const ScheduleAnalytics = (function() {
      */
     function identifyCompressionOpportunities(metrics) {
         // Find date ranges with low utilization that could be compressed
-        const sparseRanges = [];
-        const underutilizedDays = Object.entries(metrics.dailyBalance)
-            .filter(([_, data]) => data.status === 'underutilized')
+        // Use a less strict threshold for compression analysis
+        const lowUtilizationDays = Object.entries(metrics.dailyBalance)
+            .filter(([_, data]) => data.classCount < data.idealLoad * 0.7) // Was 0.5 (from status === 'underutilized')
             .map(([date, _]) => date)
             .sort(); // Sort by date
             
-        if (underutilizedDays.length < 2) {
+        // Allow detection with even just one day of low utilization
+        if (lowUtilizationDays.length < 1) {
             return { potentialDaysReduction: 0, dateRanges: [] };
         }
         
         // Convert to Date objects for easier manipulation
-        const dates = underutilizedDays.map(dateStr => new Date(dateStr));
+        const dates = lowUtilizationDays.map(dateStr => new Date(dateStr));
         
-        // Find consecutive spans of underutilized days
+        // Find consecutive spans of lower utilization days
         let rangeStart = dates[0];
         let rangeEnd = dates[0];
         const ranges = [];
@@ -222,16 +234,16 @@ const ScheduleAnalytics = (function() {
             const currentDate = dates[i];
             const prevDate = dates[i-1];
             
-            // Check if dates are consecutive or close (within 1-2 days)
+            // Check if dates are consecutive or close (within 1-3 days instead of 1-2)
             const daysDiff = (currentDate - prevDate) / (1000 * 60 * 60 * 24);
             
-            if (daysDiff <= 2) {
+            if (daysDiff <= 3) { // More lenient gap tolerance
                 // Part of the current range
                 rangeEnd = currentDate;
             } else {
                 // End of a range, start a new one
-                if ((rangeEnd - rangeStart) / (1000 * 60 * 60 * 24) >= 2) {
-                    // Only consider ranges of at least 3 days
+                // Even consider short ranges (≥1 day)
+                if ((rangeEnd - rangeStart) / (1000 * 60 * 60 * 24) >= 1) {
                     ranges.push({
                         start: formatDate(rangeStart),
                         end: formatDate(rangeEnd),
@@ -243,8 +255,9 @@ const ScheduleAnalytics = (function() {
             }
         }
         
-        // Add the last range if significant
-        if ((rangeEnd - rangeStart) / (1000 * 60 * 60 * 24) >= 2) {
+        // Add the last range if it exists
+        // No minimum range size requirement
+        if (rangeStart && rangeEnd) {
             ranges.push({
                 start: formatDate(rangeStart),
                 end: formatDate(rangeEnd),
@@ -252,8 +265,9 @@ const ScheduleAnalytics = (function() {
             });
         }
         
-        // Estimate potential reduction days (about 50% of underutilized days could be saved)
-        const potentialReduction = Math.floor(underutilizedDays.length * 0.5);
+        // Even if we don't have ranges, suggest compression if there are any low utilization days
+        // Slightly more aggressive potential reduction estimation
+        const potentialReduction = Math.max(1, Math.floor(lowUtilizationDays.length * 0.7)); // Was 0.5
         
         return {
             potentialDaysReduction: potentialReduction,
@@ -332,71 +346,89 @@ const ScheduleAnalytics = (function() {
     function generateSuggestions(metrics) {
         const suggestions = [];
         
-        // Check for underutilized days
-        const underutilizedDays = Object.entries(metrics.dailyBalance)
-            .filter(([_, dayData]) => dayData.status === 'underutilized')
+        // Check for days with lower utilization (less strict threshold)
+        // Use a lower utilization threshold to catch more days
+        const lowUtilizationDays = Object.entries(metrics.dailyBalance)
+            .filter(([_, dayData]) => dayData.classCount < dayData.idealLoad * 0.7)
             .map(([date, _]) => date);
         
-        if (underutilizedDays.length > 0) {
+        if (lowUtilizationDays.length > 0) {
             // Format dates for display
-            const formattedDates = underutilizedDays.slice(0, 3).map(dateStr => {
+            const formattedDates = lowUtilizationDays.slice(0, 3).map(dateStr => {
                 const date = new Date(dateStr);
                 return date.toLocaleDateString(undefined, {weekday: 'short', month: 'short', day: 'numeric'});
             });
             
             const dateText = formattedDates.join(', ') + 
-                (underutilizedDays.length > 3 ? ` and ${underutilizedDays.length - 3} more` : '');
+                (lowUtilizationDays.length > 3 ? ` and ${lowUtilizationDays.length - 3} more` : '');
             
             suggestions.push({
                 type: 'balance',
-                message: 'Consider adding more classes to underutilized days to improve balance.',
-                details: `Underutilized days: ${dateText}`
+                message: 'Consider adding more classes to less utilized days to improve balance.',
+                details: `Lower utilization days: ${dateText}`
             });
         }
         
-        // Check for compression opportunities
+        // Check for compression opportunities with lower threshold
         const compressionOps = identifyCompressionOpportunities(metrics);
-        if (compressionOps.potentialDaysReduction > 0 && compressionOps.dateRanges.length > 0) {
+        // Remove the length check to make it easier to find compression opportunities
+        if (compressionOps.potentialDaysReduction > 0) {
             const ranges = compressionOps.dateRanges.map(range => {
                 const start = new Date(range.start);
                 const end = new Date(range.end);
                 return `${start.toLocaleDateString(undefined, {month: 'short', day: 'numeric'})} to ${end.toLocaleDateString(undefined, {month: 'short', day: 'numeric'})}`;
             }).join(', ');
             
+            // If no specific ranges but we still have potential reduction
+            const message = ranges.length > 0 
+                ? `Sparse date ranges: ${ranges}`
+                : `Potential to reduce schedule span by ${compressionOps.potentialDaysReduction} days`;
+            
             suggestions.push({
                 type: 'compression',
                 message: 'Consider consolidating classes to reduce schedule span.',
-                details: `Sparse date ranges: ${ranges}`
+                details: message
             });
         }
         
-        // Check for period utilization imbalance
+        // Check for period utilization imbalance with more lenient thresholds
         const periodUtilization = metrics.periodUtilization;
         const lowPeriods = [];
         const highPeriods = [];
         
         Object.entries(periodUtilization).forEach(([period, data]) => {
-            if (data.percentage < 30) {
+            // More lenient thresholds: 40% instead of 30%, 70% instead of 80%
+            if (data.percentage < 40) {
                 lowPeriods.push(period);
-            } else if (data.percentage > 80) {
+            } else if (data.percentage > 70) {
                 highPeriods.push(period);
             }
         });
         
-        if (lowPeriods.length > 0 && highPeriods.length > 0) {
+        // Make this suggestion more likely by only requiring one condition
+        if (lowPeriods.length > 0 || highPeriods.length > 0) {
+            let details = '';
+            if (highPeriods.length > 0) {
+                details += `High-use periods: ${highPeriods.join(', ')}. `;
+            }
+            if (lowPeriods.length > 0) {
+                details += `Low-use periods: ${lowPeriods.join(', ')}.`;
+            }
+            
             suggestions.push({
                 type: 'utilization',
                 message: 'Consider redistributing classes across periods for better balance.',
-                details: `High-use periods: ${highPeriods.join(', ')}. Low-use periods: ${lowPeriods.join(', ')}.`
+                details: details
             });
         }
         
-        // Weekly balance suggestions
+        // Weekly balance suggestions with more lenient threshold
         const weeklyPressure = metrics.constraintPressure.weekly;
         const unbalancedWeeks = [];
         
         Object.entries(weeklyPressure).forEach(([offset, data]) => {
-            if (data.count < data.minLimit) {
+            // Give suggestion even if close to the minimum (within 90%)
+            if (data.count < data.minLimit * 0.9) {
                 const weekNum = parseInt(offset) + 1;
                 unbalancedWeeks.push(`Week ${weekNum} (${data.count}/${data.minLimit})`);
             }
@@ -407,6 +439,15 @@ const ScheduleAnalytics = (function() {
                 type: 'weekly',
                 message: 'Some weeks are below the recommended class minimum.',
                 details: `Weeks below minimum: ${unbalancedWeeks.join(', ')}`
+            });
+        }
+        
+        // Add an overall quality suggestion if score is less than 90
+        if (metrics.overallQuality < 90) {
+            suggestions.push({
+                type: 'quality',
+                message: 'Your schedule has room for improvement in overall quality.',
+                details: `Current quality score: ${metrics.overallQuality}/100. Aim for a more balanced distribution across days and periods.`
             });
         }
         

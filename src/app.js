@@ -1741,6 +1741,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         const container = document.getElementById('suggestions-container');
         
         try {
+            // Show a loading message
+            container.innerHTML = '<p class="loading-indicator">Analyzing schedule...</p>';
+            
             // Create copies of data to prevent accidental modification
             const scheduleCopy = JSON.parse(JSON.stringify(dataManager.scheduleWeeks));
             const constraintsCopy = JSON.parse(JSON.stringify(dataManager.getConfig()));
@@ -1755,20 +1758,46 @@ document.addEventListener('DOMContentLoaded', async () => {
             container.innerHTML = '';
             
             if (suggestions.length === 0) {
-                container.innerHTML = '<p>No optimization suggestions available. Your schedule appears to be well-optimized!</p>';
+                container.innerHTML = `
+                    <div class="info-message">
+                        <p><strong>No optimization suggestions available.</strong></p>
+                        <p>Your schedule appears to be well-optimized! If you'd like to see suggestions, try:</p>
+                        <ul>
+                            <li>Adding more classes to your schedule</li>
+                            <li>Creating some underutilized days (days with fewer classes)</li>
+                            <li>Using specific periods more heavily than others</li>
+                        </ul>
+                    </div>`;
                 return;
             }
+            
+            // Add a header with suggestion count
+            const header = document.createElement('div');
+            header.className = 'suggestions-header';
+            header.innerHTML = `<p>Found <strong>${suggestions.length} potential optimizations</strong> for your schedule:</p>`;
+            container.appendChild(header);
             
             // Create suggestions list
             const list = document.createElement('div');
             list.className = 'suggestions-list';
             
+            // Add icon mapping for suggestion types
+            const typeIcons = {
+                'balance': '⚖️',
+                'compression': '📏',
+                'utilization': '📊',
+                'weekly': '📅',
+                'quality': '🌟'
+            };
+            
             suggestions.forEach(suggestion => {
                 const item = document.createElement('div');
                 item.className = `suggestion-item suggestion-${suggestion.type}`;
                 
+                const icon = typeIcons[suggestion.type] || '';
+                
                 const title = document.createElement('h4');
-                title.textContent = suggestion.message;
+                title.innerHTML = `${icon} ${suggestion.message}`;
                 
                 const details = document.createElement('p');
                 details.textContent = suggestion.details;

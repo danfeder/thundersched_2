@@ -346,3 +346,49 @@
     background-color: #2196f3;
     color: white;
 }
+
+/* Beta badge styling */
+.badge {
+    display: inline-block;
+    padding: 2px 8px;
+    font-size: 0.75rem;
+    border-radius: 12px;
+    margin-left: 8px;
+    vertical-align: middle;
+}
+
+.beta-badge {
+    background-color: #ff9800;
+    color: white;
+}
+
+/* Suggestions styling improvements */
+.suggestions-description {
+    color: #666;
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+    line-height: 1.4;
+}
+
+.suggestions-footer {
+    margin-top: 1rem;
+    border-top: 1px solid #eee;
+    padding-top: 0.75rem;
+}
+
+.suggestions-note {
+    color: #888;
+    font-size: 0.8rem;
+    font-style: italic;
+    margin: 0;
+}
+
+/* New suggestion type for quality */
+.suggestion-quality {
+    border-left-color: #f44336;
+}
+
+/* Optimal status color */
+.heatmap-cell.optimal {
+    background-color: #a5d6a7;
+}
