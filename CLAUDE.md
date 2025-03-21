@@ -10,18 +10,23 @@ This project is a manual cooking class scheduler that helps users schedule cooki
 - **Class Manager**: Implemented with ability to add/edit/delete classes and their conflict periods
 - **Constraint Visualization**: Implemented with color-coded feedback
 - **CSV Data Integration**: Implemented for class conflict data
+- **Analytics Dashboard**: Implemented read-only metrics and visualizations (Phase 1)
+- **Schedule Insights**: Implemented basic insights and optimization suggestions (Phase 2)
 
 ## Repository
 - GitHub: https://github.com/danfeder/thundersched_2
 
 ## Project Structure
 - **HTML**: index.html (main UI)
-- **CSS**: css/styles.css
+- **CSS**: 
+  - css/styles.css: Main application styling
+  - css/analytics.css: Analytics dashboard styling
 - **JavaScript**:
   - src/data.js: Data management and persistence
   - src/scheduler.js: Scheduling logic and constraint validation
   - src/app.js: Main application and UI interaction
   - src/class-manager.js: Class definition and conflict management
+  - src/analytics.js: Schedule analytics and optimization suggestions
 
 ## Key Features
 1. **Interactive Scheduling Grid**:
@@ -44,6 +49,12 @@ This project is a manual cooking class scheduler that helps users schedule cooki
    - Configure class conflict periods
    - Visual conflict grid for period selection
 
+5. **Schedule Analytics**:
+   - Schedule quality metrics (span, balance, utilization)
+   - Visualizations (heatmap, period utilization, constraint pressure)
+   - Insights on schedule patterns and efficiency
+   - Optimization suggestions for improving schedule quality
+
 ## Data Structure
 - **Classes**: 
   - name: Class identifier (e.g., "PK207")
@@ -57,12 +68,39 @@ This project is a manual cooking class scheduler that helps users schedule cooki
   - Organized by week offset, date, and period
   - Boolean values indicating unavailable periods
 
+## Safe Constraint Analytics Implementation
+Following the phased approach from our implementation plan:
+
+### Completed Phases
+- **Phase 1: Read-Only Analytics Dashboard** ✅
+  - Isolated metrics calculation without modifying core data
+  - Data visualization of schedule quality 
+  - Basic insights generation
+
+- **Phase 2: Basic Insights and Suggestions** ✅
+  - Actionable suggestions based on schedule analysis
+  - UI for generating and displaying suggestions
+  - Optimized threshold parameters for better suggestions
+
+### Upcoming Phases
+- **Phase 3: What-If Analysis** (Next)
+  - Constraint simulation capabilities
+  - Impact analysis for constraint changes
+  - Lazy-loaded constraint solver
+
+- **Phase 4: Enhanced Visualizations and Optimization**
+  - Advanced canvas-based visualizations
+  - Specific optimization suggestions
+  - Automated schedule improvement options
+
 ## Implementation Priorities
 - [x] Core manual scheduling interface
 - [x] Teacher unavailability tracking
 - [x] Class management interface
-- [ ] Enhanced assistance features (suggestions)
-- [ ] Optimization features (auto-complete)
+- [x] Read-only analytics dashboard
+- [x] Basic optimization suggestions
+- [ ] What-if constraint analysis
+- [ ] Enhanced visualization and optimization
 
 ## Future Enhancements
 1. **Smart Suggestions**:
