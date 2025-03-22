@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>What-If Analysis Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-block {
+            background-color: #f5f5f5;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+        button {
+            padding: 8px 16px;
+            background-color: #4caf50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        pre {
+            background-color: #f8f8f8;
+            padding: 10px;
+            border-radius: 4px;
+            overflow: auto;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            border-left: 4px solid #2196f3;
+            background-color: #e3f2fd;
+        }
+    </style>
+</head>
+<body>
+    <h1>What-If Analysis Test</h1>
+    
+    <div class="test-block">
+        <h2>Test Library Loader</h2>
+        <button onclick="testLibraryLoader()">Run Test</button>
+        <div id="library-loader-result" class="result"></div>
+    </div>
+    
+    <div class="test-block">
+        <h2>Test Solver Wrapper</h2>
+        <button onclick="testSolverWrapper()">Run Test</button>
+        <div id="solver-wrapper-result" class="result"></div>
+    </div>
+    
+    <div class="test-block">
+        <h2>Test Constraint Simulation</h2>
+        <button onclick="testConstraintSimulation()">Run Test</button>
+        <div id="simulation-result" class="result"></div>
+    </div>
+    
+    <script src="src/library-loader.js"></script>
+    <script src="src/solver-wrapper.js"></script>
+    <script>
+        // Test Library Loader
+        async function testLibraryLoader() {
+            const resultDiv = document.getElementById('library-loader-result');
+            resultDiv.innerHTML = 'Testing Library Loader...';
+            
+            try {
+                // Create a mock script to load
+                const mockUrl = 'data:text/javascript,window.MockLibrary = { version: "1.0.0" };';
+                
+                await LibraryLoader.loadLibrary('mockLibrary', mockUrl, () => window.MockLibrary !== undefined);
+                
+                resultDiv.innerHTML = `
+                    <strong>SUCCESS:</strong> Library Loader working properly<br>
+                    Loaded libraries: ${JSON.stringify(LibraryLoader.loaded)}
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `<strong>ERROR:</strong> ${error.message}`;
+            }
+        }
+        
+        // Test Solver Wrapper
+        async function testSolverWrapper() {
+            const resultDiv = document.getElementById('solver-wrapper-result');
+            resultDiv.innerHTML = 'Initializing solver...';
+            
+            try {
+                await ConstraintSolverWrapper.initialize();
+                const isAvailable = ConstraintSolverWrapper.isAvailable();
+                
+                resultDiv.innerHTML = `
+                    <strong>SUCCESS:</strong> Solver initialized<br>
+                    Solver available: ${isAvailable}
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `<strong>ERROR:</strong> ${error.message}`;
+            }
+        }
+        
+        // Test Constraint Simulation
+        async function testConstraintSimulation() {
+            const resultDiv = document.getElementById('simulation-result');
+            resultDiv.innerHTML = 'Running simulation...';
+            
+            try {
+                // Create a sample schedule
+                const mockSchedule = {
+                    "0": {
+                        "2023-10-23": {
+                            "1": "Class1",
+                            "2": "Class2",
+                            "3": "Class3",
+                            "4": null,
+                            "5": null,
+                            "6": null,
+                            "7": null,
+                            "8": null
+                        },
+                        "2023-10-24": {
+                            "1": "Class4",
+                            "2": "Class5",
+                            "3": null,
+                            "4": null,
+                            "5": "Class6",
+                            "6": "Class7",
+                            "7": null,
+                            "8": null
+                        }
+                    }
+                };
+                
+                // Current constraints
+                const currentConstraints = {
+                    maxConsecutiveClasses: 3,
+                    maxClassesPerDay: 5,
+                    minClassesPerWeek: 5,
+                    maxClassesPerWeek: 10
+                };
+                
+                // New, tighter constraints
+                const newConstraints = {
+                    maxConsecutiveClasses: 2,
+                    maxClassesPerDay: 3,
+                    minClassesPerWeek: 5,
+                    maxClassesPerWeek: 8
+                };
+                
+                // Run simulation
+                await ConstraintSolverWrapper.initialize();
+                const result = await ConstraintSolverWrapper.simulateConstraintChanges(
+                    mockSchedule,
+                    currentConstraints,
+                    newConstraints
+                );
+                
+                // Display results
+                resultDiv.innerHTML = `
+                    <strong>Simulation results:</strong><br>
+                    <pre>${JSON.stringify(result, null, 2)}</pre>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `<strong>ERROR:</strong> ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html>
