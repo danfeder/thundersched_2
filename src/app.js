@@ -51,6 +51,67 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
             
             return 'Check console for saved schedules information';
+        },
+        
+        // Add a new debug function to fix a specific saved schedule
+        fixOneDay: function(scheduleName) {
+            try {
+                // Find the schedule by name
+                const schedule = dataManager.savedSchedules.find(s => s.name === scheduleName);
+                if (!schedule) {
+                    console.error(`Schedule "${scheduleName}" not found`);
+                    return `Schedule "${scheduleName}" not found`;
+                }
+                
+                console.log(`Fixing schedule "${scheduleName}"`);
+                
+                // Check for each date in the schedule and shift by one day
+                Object.keys(schedule.scheduleData).forEach(weekOffset => {
+                    const oldDates = Object.keys(schedule.scheduleData[weekOffset]);
+                    const newWeekData = {};
+                    
+                    oldDates.forEach(oldDateStr => {
+                        // Parse the date and subtract one day
+                        const [year, month, day] = oldDateStr.split('-').map(num => parseInt(num, 10));
+                        const oldDate = new Date(year, month - 1, day);
+                        oldDate.setDate(oldDate.getDate() - 1);
+                        
+                        // Format the new date
+                        const newDateStr = dataManager.getFormattedDate(oldDate);
+                        console.log(`  Shifting date: ${oldDateStr} -> ${newDateStr}`);
+                        
+                        // Copy the data to the new date
+                        newWeekData[newDateStr] = schedule.scheduleData[weekOffset][oldDateStr];
+                    });
+                    
+                    // Replace the data in this week
+                    schedule.scheduleData[weekOffset] = newWeekData;
+                });
+                
+                // Find the start date from the first day
+                if (Object.keys(schedule.scheduleData).length > 0) {
+                    const firstWeekOffset = Object.keys(schedule.scheduleData).sort()[0];
+                    if (firstWeekOffset) {
+                        const firstWeekDates = Object.keys(schedule.scheduleData[firstWeekOffset]).sort();
+                        if (firstWeekDates.length > 0) {
+                            const [year, month, day] = firstWeekDates[0].split('-').map(num => parseInt(num, 10));
+                            const firstDate = new Date(year, month - 1, day);
+                            const monday = dataManager.getMondayOfWeek(firstDate);
+                            schedule.startDate = dataManager.getFormattedDate(monday);
+                            console.log(`  Set startDate to ${schedule.startDate}`);
+                        }
+                    }
+                }
+                
+                // Save back to localStorage
+                localStorage.setItem('cooking-saved-schedules', JSON.stringify(dataManager.savedSchedules));
+                console.log(`Schedule "${scheduleName}" fixed and saved`);
+                
+                return `Schedule "${scheduleName}" fixed. Please reload this page to see the changes.`;
+            } catch (e) {
+                console.error('Error fixing schedule:', e);
+                return 'Error fixing schedule: ' + e.message;
+            }
         }
     };
     
@@ -305,6 +366,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Get dates for the current week
         const weekDates = dataManager.getCurrentWeekDates();
         
+        // Debug current week dates
+        console.log("initializing UI with dates:", weekDates.map(d => ({
+            date: d.toDateString(),
+            day: d.getDay(),
+            dayName: dataManager.getDayFromDate(d),
+            formatted: dataManager.getFormattedDate(d)
+        })));
+        
         // Add empty cell in top-left corner
         scheduleGrid.appendChild(createElementWithClass('div', 'grid-header', ''));
         
@@ -322,6 +391,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             
             const headerCell = createElementWithClass('div', 'grid-header');
             headerCell.innerHTML = formattedDate;
+            headerCell.dataset.dayname = dayName; // Add data attribute for debugging
             scheduleGrid.appendChild(headerCell);
         });
         
@@ -340,6 +410,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const cell = createElementWithClass('div', 'grid-cell');
                 cell.dataset.date = dateStr;
                 cell.dataset.period = period;
+                cell.dataset.dayname = dayName; // Add dayname for debugging
                 
                 // Add teacher mode click handler
                 cell.addEventListener('click', handleCellClick);
@@ -1333,6 +1404,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             description,
             createdAt: timestamp,
             lastModified: timestamp,
+            startDate: dataManager.getFormattedDate(dataManager.scheduleStartDate), // Save the schedule start date
             scheduleData: JSON.parse(JSON.stringify(dataManager.scheduleWeeks)),
             classData: JSON.parse(JSON.stringify(dataManager.classes)),
             constraintData: JSON.parse(JSON.stringify(dataManager.config)),
@@ -1737,6 +1809,30 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
             if (mode === 'full') {
                 // Full restore - use all saved data including classes
+                // First, set the scheduleStartDate from savedSchedule if available
+                if (savedSchedule.startDate) {
+                    // Parse the date string safely to avoid timezone issues
+                    const [year, month, day] = savedSchedule.startDate.split('-').map(num => parseInt(num, 10));
+                    dataManager.scheduleStartDate = new Date(year, month - 1, day); // month is 0-indexed in JS
+                    console.log("Restored schedule start date:", dataManager.scheduleStartDate.toDateString());
+                } else {
+                    // If no startDate in the saved schedule, try to infer it from the schedule data
+                    console.log("No startDate in saved schedule, attempting to infer it");
+                    const firstWeekOffset = Object.keys(savedSchedule.scheduleData).sort()[0];
+                    if (firstWeekOffset) {
+                        // Get the first date in the first week
+                        const firstWeekDates = Object.keys(savedSchedule.scheduleData[firstWeekOffset]).sort();
+                        if (firstWeekDates.length > 0) {
+                            // Parse the first date string
+                            const [year, month, day] = firstWeekDates[0].split('-').map(num => parseInt(num, 10));
+                            const firstDate = new Date(year, month - 1, day);
+                            // Find the Monday of that week
+                            dataManager.scheduleStartDate = dataManager.getMondayOfWeek(firstDate);
+                            console.log("Inferred start date:", dataManager.scheduleStartDate.toDateString());
+                        }
+                    }
+                }
+                
                 dataManager.scheduleWeeks = JSON.parse(JSON.stringify(savedSchedule.scheduleData));
                 dataManager.classes = JSON.parse(JSON.stringify(savedSchedule.classData));
                 dataManager.config = JSON.parse(JSON.stringify(savedSchedule.constraintData));
@@ -1773,6 +1869,31 @@ document.addEventListener('DOMContentLoaded', async () => {
                 
             } else if (mode === 'adapt') {
                 // Adapt mode - keep current classes but load scheduled placements where possible
+                
+                // First, set the scheduleStartDate from savedSchedule if available
+                if (savedSchedule.startDate) {
+                    // Parse the date string safely to avoid timezone issues
+                    const [year, month, day] = savedSchedule.startDate.split('-').map(num => parseInt(num, 10));
+                    dataManager.scheduleStartDate = new Date(year, month - 1, day); // month is 0-indexed in JS
+                    console.log("Restored schedule start date (adapt mode):", dataManager.scheduleStartDate.toDateString());
+                } else if (Object.keys(savedSchedule.scheduleData).length > 0) {
+                    // If no startDate in the saved schedule, try to infer it from the schedule data
+                    console.log("No startDate in saved schedule (adapt mode), attempting to infer it");
+                    const firstWeekOffset = Object.keys(savedSchedule.scheduleData).sort()[0];
+                    if (firstWeekOffset) {
+                        // Get the first date in the first week
+                        const firstWeekDates = Object.keys(savedSchedule.scheduleData[firstWeekOffset]).sort();
+                        if (firstWeekDates.length > 0) {
+                            // Parse the first date string
+                            const [year, month, day] = firstWeekDates[0].split('-').map(num => parseInt(num, 10));
+                            const firstDate = new Date(year, month - 1, day);
+                            // Find the Monday of that week
+                            dataManager.scheduleStartDate = dataManager.getMondayOfWeek(firstDate);
+                            console.log("Inferred start date (adapt mode):", dataManager.scheduleStartDate.toDateString());
+                        }
+                    }
+                }
+                
                 dataManager.scheduleWeeks = {};
                 
                 // Create empty weeks matching saved structure

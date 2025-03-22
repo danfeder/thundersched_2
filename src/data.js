@@ -93,7 +93,11 @@ class DataManager {
     }
     
     getFormattedDate(date) {
-        return date.toISOString().split('T')[0]; // YYYY-MM-DD
+        // Using local date functions to avoid timezone issues
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`; // YYYY-MM-DD
     }
     
     getDayFromDate(date) {
@@ -105,9 +109,12 @@ class DataManager {
         const weekDates = [];
         
         // Create a fresh copy of the start date (should always be a Monday)
-        // Use ISO string to ensure consistent date handling
-        const startDateStr = this.scheduleStartDate.toISOString();
-        const weekStartDate = new Date(startDateStr);
+        // Use a new Date constructor to avoid timezone issues
+        const weekStartDate = new Date(
+            this.scheduleStartDate.getFullYear(),
+            this.scheduleStartDate.getMonth(),
+            this.scheduleStartDate.getDate()
+        );
         
         console.log("Before offset:", weekStartDate.toDateString());
         
@@ -116,10 +123,25 @@ class DataManager {
         
         console.log("After offset:", weekStartDate.toDateString(), "Offset:", weekOffset);
         
+        // Verify the weekStartDate is Monday (day 1), if not adjust it
+        const startDay = weekStartDate.getDay();
+        if (startDay !== 1) {
+            console.warn("Week start date is not Monday, adjusting...", 
+                        "Current day:", startDay, 
+                        "Date:", weekStartDate.toDateString());
+            // If not Monday, adjust to the Monday of this week
+            const daysToAdjust = startDay === 0 ? -6 : (1 - startDay);
+            weekStartDate.setDate(weekStartDate.getDate() + daysToAdjust);
+            console.log("Adjusted to Monday:", weekStartDate.toDateString());
+        }
+        
         // Generate dates for Monday through Friday (weekdays only)
         for (let i = 0; i < 5; i++) {
-            const date = new Date(weekStartDate);
-            date.setDate(date.getDate() + i);
+            const date = new Date(
+                weekStartDate.getFullYear(),
+                weekStartDate.getMonth(),
+                weekStartDate.getDate() + i
+            );
             
             console.log(`Date ${i}:`, date.toDateString(), "Day:", date.getDay());
             
@@ -603,6 +625,41 @@ class DataManager {
             
             if (storedSchedules) {
                 this.savedSchedules = JSON.parse(storedSchedules);
+                
+                // Migrate old saved schedules to add startDate if missing
+                let migratedSchedules = false;
+                this.savedSchedules.forEach(schedule => {
+                    if (!schedule.startDate && schedule.scheduleData) {
+                        console.log(`Migrating schedule "${schedule.name}" to add startDate`);
+                        migratedSchedules = true;
+                        
+                        // Try to infer startDate from schedule data
+                        const firstWeekOffset = Object.keys(schedule.scheduleData).sort()[0];
+                        if (firstWeekOffset) {
+                            // Get the first date in the first week
+                            const firstWeekDates = Object.keys(schedule.scheduleData[firstWeekOffset]).sort();
+                            if (firstWeekDates.length > 0) {
+                                // Parse the first date string to a Date
+                                const [year, month, day] = firstWeekDates[0].split('-').map(num => parseInt(num, 10));
+                                const firstDate = new Date(year, month - 1, day);
+                                
+                                // Find the Monday of that week
+                                const monday = this.getMondayOfWeek(firstDate);
+                                
+                                // Format and save as startDate
+                                schedule.startDate = this.getFormattedDate(monday);
+                                console.log(`  Inferred startDate: ${schedule.startDate} for schedule "${schedule.name}"`);
+                            }
+                        }
+                    }
+                });
+                
+                // Save migrated schedules back to localStorage
+                if (migratedSchedules) {
+                    console.log('Saving migrated schedules with added startDates');
+                    localStorage.setItem('cooking-saved-schedules', JSON.stringify(this.savedSchedules));
+                }
+                
                 console.log(`Loaded ${this.savedSchedules.length} saved schedules from localStorage:`, this.savedSchedules);
             } else {
                 console.log('No saved schedules found in localStorage');
