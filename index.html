@@ -440,12 +440,12 @@
     </div>
 
     <!-- Configuration Modal -->
-    <div id="config-modal" class="modal">
-        <div class="modal-content">
-            <span class="close">&times;</span>
-            <h2>Scheduling Constraints</h2>
+    <div id="config-modal" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; overflow-y: auto; padding: 20px 0;">
+        <div class="modal-content" style="width: 600px; max-width: 90%; margin: 20px auto; background: white; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); position: relative; padding: 25px; overflow-y: auto; max-height: 80vh;">
+            <span class="close" style="position: absolute; top: 15px; right: 20px; font-size: 24px; cursor: pointer;">&times;</span>
+            <h2 style="margin-top: 5px; margin-bottom: 20px;">Scheduling Constraints</h2>
             
-            <form id="config-form">
+            <form id="config-form" style="display: flex; flex-direction: column; padding-bottom: 60px;">
                 <div class="form-group">
                     <label for="max-consecutive">Maximum Consecutive Classes:</label>
                     <input type="number" id="max-consecutive" min="1" max="8" value="2">
@@ -476,7 +476,7 @@
                 
                 <div id="config-warning-container"></div>
                 
-                <div class="form-actions">
+                <div class="form-actions" style="padding: 15px 0; margin-top: 20px; border-top: 1px solid #eee; display: flex; justify-content: flex-end; gap: 10px;">
                     <button type="submit" class="btn">Save Configuration</button>
                     <button type="button" id="reset-config-btn" class="btn btn-secondary">Reset to Defaults</button>
                 </div>

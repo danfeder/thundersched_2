@@ -504,6 +504,19 @@ header {
     margin-top: 2rem;
 }
 
+/* Specific styling for config form actions to make them sticky */
+#config-form .form-actions {
+    position: sticky;
+    bottom: 0;
+    background-color: white;
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+    margin-top: 1rem;
+    border-top: 1px solid #eee;
+    box-shadow: 0 -5px 10px rgba(255, 255, 255, 0.9);
+    z-index: 100;
+}
+
 /* Conflict Grid */
 .conflict-grid-container {
     margin-top: 1rem;
@@ -757,6 +770,19 @@ header {
 }
 
 /* Configuration form styles */
+#config-modal .modal-content {
+    max-height: 90vh;
+    overflow-y: auto;
+    padding-bottom: 1rem;
+}
+
+#config-form {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    padding-bottom: 80px; /* Make room for the sticky form actions at bottom */
+}
+
 #config-form .form-group {
     margin-bottom: 1.5rem;
     position: relative;
