@@ -594,65 +594,68 @@
         </div>
     </div>
 
-    <!-- What-If Analysis Modal -->
-    <div id="what-if-modal" class="modal">
-        <div class="modal-content">
-            <span class="close">&times;</span>
-            <h2>What-If Analysis</h2>
-            <p class="description">
+    <!-- What-If Analysis Modal (Completely Rebuilt) -->
+    <div id="what-if-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; overflow-y: auto; padding: 20px 0;">
+        <div style="width: 700px; max-width: 90%; margin: 20px auto; background: white; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); position: relative; padding: 25px; overflow-y: auto; max-height: 80vh;">
+            <span class="close" style="position: absolute; top: 15px; right: 20px; font-size: 24px; cursor: pointer;">&times;</span>
+            
+            <h2 style="margin-top: 5px; margin-bottom: 10px;">What-If Analysis</h2>
+            <p style="margin-bottom: 20px;">
                 Adjust constraints to see how they might affect your schedule quality.
             </p>
             
-            <div class="constraint-adjustments">
-                <div class="constraint-group">
-                    <label for="what-if-consecutive">Max Consecutive Classes:</label>
-                    <div class="constraint-input-group">
-                        <span id="what-if-consecutive-value">2</span>
-                        <input type="range" id="what-if-consecutive" min="1" max="4" value="2">
+            <div style="background-color: #f9f9f9; border-radius: 5px; padding: 20px; margin: 15px 0; width: 100%; box-sizing: border-box;">
+                <div style="margin-bottom: 25px;">
+                    <label for="what-if-consecutive" style="display: block; margin-bottom: 10px;">Max Consecutive Classes:</label>
+                    <div style="display: flex; align-items: center;">
+                        <span id="what-if-consecutive-value" style="font-weight: bold; font-size: 18px; margin-right: 15px; min-width: 25px;">2</span>
+                        <input type="range" id="what-if-consecutive" min="1" max="4" value="2" style="flex: 1; height: 10px;">
                     </div>
                 </div>
                 
-                <div class="constraint-group">
-                    <label for="what-if-daily">Max Classes Per Day:</label>
-                    <div class="constraint-input-group">
-                        <span id="what-if-daily-value">4</span>
-                        <input type="range" id="what-if-daily" min="1" max="8" value="4">
+                <div style="margin-bottom: 25px;">
+                    <label for="what-if-daily" style="display: block; margin-bottom: 10px;">Max Classes Per Day:</label>
+                    <div style="display: flex; align-items: center;">
+                        <span id="what-if-daily-value" style="font-weight: bold; font-size: 18px; margin-right: 15px; min-width: 25px;">4</span>
+                        <input type="range" id="what-if-daily" min="1" max="8" value="4" style="flex: 1; height: 10px;">
                     </div>
                 </div>
                 
-                <div class="constraint-group">
-                    <label>Weekly Class Target (Min):</label>
-                    <div class="constraint-input-group">
-                        <span id="what-if-weekly-min-value">12</span>
-                        <input type="range" id="what-if-weekly-min" min="4" max="30" value="12">
+                <div style="margin-bottom: 25px;">
+                    <label for="what-if-weekly-min" style="display: block; margin-bottom: 10px;">Weekly Class Target (Min):</label>
+                    <div style="display: flex; align-items: center;">
+                        <span id="what-if-weekly-min-value" style="font-weight: bold; font-size: 18px; margin-right: 15px; min-width: 25px;">12</span>
+                        <input type="range" id="what-if-weekly-min" min="4" max="30" value="12" style="flex: 1; height: 10px;">
                     </div>
                 </div>
                 
-                <div class="constraint-group">
-                    <label>Weekly Class Target (Max):</label>
-                    <div class="constraint-input-group">
-                        <span id="what-if-weekly-max-value">16</span>
-                        <input type="range" id="what-if-weekly-max" min="4" max="30" value="16">
+                <div style="margin-bottom: 10px;">
+                    <label for="what-if-weekly-max" style="display: block; margin-bottom: 10px;">Weekly Class Target (Max):</label>
+                    <div style="display: flex; align-items: center;">
+                        <span id="what-if-weekly-max-value" style="font-weight: bold; font-size: 18px; margin-right: 15px; min-width: 25px;">16</span>
+                        <input type="range" id="what-if-weekly-max" min="4" max="30" value="16" style="flex: 1; height: 10px;">
                     </div>
                 </div>
             </div>
             
-            <div class="simulation-results">
-                <h3>Simulation Results</h3>
-                <div id="what-if-status" class="what-if-status">
+            <!-- Simulation results container -->
+            <div style="padding: 10px 0; margin: 20px 0; width: 100%; box-sizing: border-box;">
+                <h3 style="margin-top: 0; margin-bottom: 15px;">Simulation Results</h3>
+                <div id="what-if-status" style="padding: 15px; background-color: #f5f5f5; border-radius: 5px; margin-bottom: 15px;">
                     <div class="status-message">Adjust constraints and click "Simulate" to see potential impact</div>
                 </div>
                 
-                <div id="what-if-results" class="what-if-results" style="display: none;">
+                <div id="what-if-results" style="display: none; padding: 15px; background-color: #f9f9f9; border-radius: 5px; border-left: 4px solid #2196f3;">
                     <!-- Results will be shown here -->
                 </div>
             </div>
             
-            <div class="what-if-actions">
-                <button id="what-if-simulate-btn" class="btn">Simulate Changes</button>
-                <div class="what-if-advanced-actions" style="display: none;">
-                    <button id="what-if-apply-btn" class="btn">Apply Changes</button>
-                    <button id="what-if-cancel-btn" class="btn btn-secondary">Cancel</button>
+            <!-- Action buttons -->
+            <div style="display: flex; justify-content: space-between; padding: 15px 0; margin-top: 30px; border-top: 1px solid #eee; width: 100%;">
+                <button id="what-if-simulate-btn" style="padding: 12px 24px; background-color: #2196f3; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Simulate Changes</button>
+                <div class="what-if-advanced-actions" style="display: none; gap: 10px;">
+                    <button id="what-if-apply-btn" style="padding: 12px 24px; background-color: #4caf50; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Apply Changes</button>
+                    <button id="what-if-cancel-btn" style="padding: 12px 24px; background-color: #9e9e9e; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Cancel</button>
                 </div>
             </div>
         </div>
@@ -737,5 +740,152 @@
     <script src="src/analytics.js"></script>
     <script src="src/app.js"></script>
     <script src="src/class-manager.js"></script>
+    
+    <!-- Fix modal display -->
+    <script>
+        // Override the display style behavior for all modals
+        document.addEventListener('DOMContentLoaded', function() {
+            // Get all modals
+            const modals = document.querySelectorAll('.modal');
+            const whatIfModal = document.getElementById('what-if-modal');
+            
+            // Fix all modal show/hide behavior
+            modals.forEach(modal => {
+                // Handle What-If modal separately
+                if (modal.id === 'what-if-modal') {
+                    return; // Skip - we'll handle it separately
+                }
+                
+                // Create an observer to monitor style changes
+                const observer = new MutationObserver(mutations => {
+                    mutations.forEach(mutation => {
+                        if (mutation.attributeName === 'style') {
+                            // When display is set to 'block', use our flex layout instead
+                            if (modal.style.display === 'block') {
+                                modal.style.display = 'flex';
+                                modal.classList.add('show');
+                            } else if (modal.style.display === 'none') {
+                                modal.classList.remove('show');
+                            }
+                        }
+                    });
+                });
+                
+                // Start observing
+                observer.observe(modal, { attributes: true });
+                
+                // Fix all close buttons
+                const closeButtons = modal.querySelectorAll('.close');
+                closeButtons.forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        modal.style.display = 'none';
+                        modal.classList.remove('show');
+                    });
+                });
+            });
+            
+            // Close modal when clicking outside
+            window.addEventListener('click', function(event) {
+                modals.forEach(modal => {
+                    if (event.target === modal) {
+                        modal.style.display = 'none';
+                        modal.classList.remove('show');
+                    }
+                });
+            });
+            
+            // Special handling for What-If modal
+            if (whatIfModal) {
+                // Create an observer to monitor style changes
+                const whatIfObserver = new MutationObserver(mutations => {
+                    mutations.forEach(mutation => {
+                        if (mutation.attributeName === 'style') {
+                            if (whatIfModal.style.display === 'block') {
+                                whatIfModal.classList.add('show');
+                            } else if (whatIfModal.style.display === 'none') {
+                                whatIfModal.classList.remove('show');
+                            }
+                        }
+                    });
+                });
+                
+                // Start observing
+                whatIfObserver.observe(whatIfModal, { attributes: true });
+                
+                // Close button for What-If modal
+                const whatIfCloseBtn = whatIfModal.querySelector('.close');
+                if (whatIfCloseBtn) {
+                    whatIfCloseBtn.addEventListener('click', function() {
+                        whatIfModal.style.display = 'none';
+                        whatIfModal.classList.remove('show');
+                    });
+                }
+                
+                // When the user clicks anywhere outside of the modal, close it
+                whatIfModal.addEventListener('click', function(event) {
+                    if (event.target === whatIfModal) {
+                        whatIfModal.style.display = 'none';
+                        whatIfModal.classList.remove('show');
+                    }
+                });
+            }
+        });
+    </script>
+    
+    <!-- Initialize the What-If Analysis functionality -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set up What-If Simulate button handler with multiple fallbacks
+            const simulateBtn = document.getElementById('what-if-simulate-btn');
+            if (simulateBtn) {
+                simulateBtn.addEventListener('click', function() {
+                    try {
+                        // Show loading state
+                        this.disabled = true;
+                        this.textContent = 'Simulating...';
+                        
+                        // Try multiple paths to access the function
+                        let simulationCalled = false;
+                        
+                        // 1. Direct global function
+                        if (typeof window.runWhatIfSimulation === 'function') {
+                            console.log('Using global runWhatIfSimulation function');
+                            simulationCalled = true;
+                            Promise.resolve(window.runWhatIfSimulation())
+                                .catch(err => console.error('Simulation error:', err))
+                                .finally(() => {
+                                    this.disabled = false;
+                                    this.textContent = 'Simulate Changes';
+                                });
+                        }
+                        // 2. Through whatIfAnalysis object
+                        else if (window.whatIfAnalysis && typeof window.whatIfAnalysis.runSimulation === 'function') {
+                            console.log('Using whatIfAnalysis.runSimulation function');
+                            simulationCalled = true;
+                            Promise.resolve(window.whatIfAnalysis.runSimulation())
+                                .catch(err => console.error('Simulation error:', err))
+                                .finally(() => {
+                                    this.disabled = false;
+                                    this.textContent = 'Simulate Changes';
+                                });
+                        }
+                        
+                        // If no method worked, show an error
+                        if (!simulationCalled) {
+                            console.error('No simulation function found, using fallback');
+                            alert('Unable to run simulation. Please try again later.');
+                            this.disabled = false;
+                            this.textContent = 'Simulate Changes';
+                        }
+                    } catch (error) {
+                        console.error('Error running What-If simulation:', error);
+                        alert('An error occurred during simulation. Please try again later.');
+                        this.disabled = false;
+                        this.textContent = 'Simulate Changes';
+                    }
+                });
+            }
+        });
+    </script>
 </body>
 </html>
