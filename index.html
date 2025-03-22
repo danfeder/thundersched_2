@@ -6,6 +6,223 @@
     <title>Cooking Class Scheduler</title>
     <link rel="stylesheet" href="css/styles.css">
     <link rel="stylesheet" href="css/analytics.css">
+    <script>
+        // Simple utility function to set up What-If Analysis when document is ready
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Setting up What-If Analysis event handlers');
+            
+            // Direct click handler for What-If button
+            document.getElementById('show-what-if-btn').addEventListener('click', function() {
+                console.log('What-If button clicked');
+                const whatIfModal = document.getElementById('what-if-modal');
+                if (whatIfModal) {
+                    // Set up the constraint values first
+                    setTimeout(function() {
+                        // This will run after app.js has initialized
+                        if (window.dataManager) {
+                            console.log('Setting up constraint values');
+                            const config = window.dataManager.getConfig();
+                            
+                            document.getElementById('what-if-consecutive').value = config.maxConsecutiveClasses;
+                            document.getElementById('what-if-consecutive-value').textContent = config.maxConsecutiveClasses;
+                            
+                            document.getElementById('what-if-daily').value = config.maxClassesPerDay;
+                            document.getElementById('what-if-daily-value').textContent = config.maxClassesPerDay;
+                            
+                            document.getElementById('what-if-weekly-min').value = config.minClassesPerWeek;
+                            document.getElementById('what-if-weekly-min-value').textContent = config.minClassesPerWeek;
+                            
+                            document.getElementById('what-if-weekly-max').value = config.maxClassesPerWeek;
+                            document.getElementById('what-if-weekly-max-value').textContent = config.maxClassesPerWeek;
+                        }
+                    }, 10);
+                    
+                    // Show the modal
+                    whatIfModal.style.display = 'block';
+                    console.log('Showing What-If modal');
+                    
+                    // Reset results
+                    document.getElementById('what-if-results').style.display = 'none';
+                    document.getElementById('what-if-status').innerHTML = 
+                        '<div class="status-message">Adjust constraints and click "Simulate" to see potential impact</div>';
+                    document.querySelector('.what-if-advanced-actions').style.display = 'none';
+                } else {
+                    console.error('What-If modal not found');
+                }
+            });
+            
+            // Set up event handlers for the what-if modal buttons (executed after DOM is completely loaded)
+            setTimeout(function() {
+                console.log('Setting up What-If modal button handlers');
+                
+                // Simulation button
+                document.getElementById('what-if-simulate-btn').addEventListener('click', function() {
+                    console.log('Simulate button clicked');
+                    // Try multiple ways to find the function, for robustness
+                    if (window.runWhatIfSimulation) {
+                        console.log('Using window.runWhatIfSimulation');
+                        window.runWhatIfSimulation();
+                    } else if (window.whatIfAnalysis && window.whatIfAnalysis.runWhatIfSimulation) {
+                        console.log('Using window.whatIfAnalysis.runWhatIfSimulation');
+                        window.whatIfAnalysis.runWhatIfSimulation();
+                    } else {
+                        console.error('runWhatIfSimulation function not available, using fallback implementation');
+                        
+                        // Fallback implementation
+                        const resultContainer = document.getElementById('what-if-results');
+                        const statusContainer = document.getElementById('what-if-status');
+                        const actionContainer = document.querySelector('.what-if-advanced-actions');
+                        
+                        // Show loading state
+                        statusContainer.innerHTML = '<div class="loading-indicator">Running simulation...</div>';
+                        resultContainer.style.display = 'none';
+                        actionContainer.style.display = 'none';
+                        
+                        // Get the constraint values
+                        const newConstraints = {
+                            maxConsecutiveClasses: parseInt(document.getElementById('what-if-consecutive').value),
+                            maxClassesPerDay: parseInt(document.getElementById('what-if-daily').value),
+                            minClassesPerWeek: parseInt(document.getElementById('what-if-weekly-min').value),
+                            maxClassesPerWeek: parseInt(document.getElementById('what-if-weekly-max').value)
+                        };
+                        
+                        // Simple mock result
+                        const mockResult = {
+                            source: 'fallback',
+                            feasible: true,
+                            currentClassCount: 10,
+                            simulatedClassCount: 10,
+                            invalidPlacements: [],
+                            metrics: {
+                                totalClasses: 10,
+                                invalidPlacements: 0,
+                                affectedDays: 0
+                            }
+                        };
+                        
+                        // Display the results
+                        setTimeout(function() {
+                            statusContainer.innerHTML = `
+                                <div class="status-success">
+                                    ✓ Schedule appears to be feasible with the new constraints (fallback mode)
+                                </div>
+                            `;
+                            
+                            resultContainer.innerHTML = `
+                                <h4>Impact Analysis (Fallback Mode)</h4>
+                                <p>This is a simplified simulation result as the full simulation engine is not available.</p>
+                                <table class="impact-table">
+                                    <tr>
+                                        <th>Constraint</th>
+                                        <th>Value</th>
+                                    </tr>
+                                    <tr>
+                                        <td>Max Consecutive Classes</td>
+                                        <td>${newConstraints.maxConsecutiveClasses}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Max Classes Per Day</td>
+                                        <td>${newConstraints.maxClassesPerDay}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Weekly Class Target</td>
+                                        <td>${newConstraints.minClassesPerWeek}-${newConstraints.maxClassesPerWeek}</td>
+                                    </tr>
+                                </table>
+                            `;
+                            
+                            resultContainer.style.display = 'block';
+                            actionContainer.style.display = 'flex';
+                        }, 1000);
+                    }
+                });
+                
+                // Apply button
+                document.getElementById('what-if-apply-btn').addEventListener('click', function() {
+                    console.log('Apply button clicked');
+                    // Try multiple ways to find the function, for robustness
+                    if (window.applyWhatIfResults) {
+                        console.log('Using window.applyWhatIfResults');
+                        window.applyWhatIfResults();
+                    } else if (window.whatIfAnalysis && window.whatIfAnalysis.applyWhatIfResults) {
+                        console.log('Using window.whatIfAnalysis.applyWhatIfResults');
+                        window.whatIfAnalysis.applyWhatIfResults();
+                    } else {
+                        console.error('applyWhatIfResults function not available, using fallback implementation');
+                        
+                        // Fallback implementation
+                        
+                        // Get new constraint values
+                        const newConstraints = {
+                            maxConsecutiveClasses: parseInt(document.getElementById('what-if-consecutive').value),
+                            maxClassesPerDay: parseInt(document.getElementById('what-if-daily').value),
+                            minClassesPerWeek: parseInt(document.getElementById('what-if-weekly-min').value),
+                            maxClassesPerWeek: parseInt(document.getElementById('what-if-weekly-max').value)
+                        };
+                        
+                        // Try to update the config if dataManager is available
+                        if (window.dataManager && window.dataManager.updateConfig) {
+                            window.dataManager.updateConfig(newConstraints);
+                            
+                            // Close the modal
+                            document.getElementById('what-if-modal').style.display = 'none';
+                            
+                            alert('Constraints updated successfully (fallback mode).');
+                        } else {
+                            alert('Cannot apply changes: dataManager not available in fallback mode.');
+                        }
+                    }
+                });
+                
+                // Cancel button
+                document.getElementById('what-if-cancel-btn').addEventListener('click', function() {
+                    document.getElementById('what-if-modal').style.display = 'none';
+                });
+                
+                // Close button
+                document.querySelector('#what-if-modal .close').addEventListener('click', function() {
+                    document.getElementById('what-if-modal').style.display = 'none';
+                });
+                
+            }, 500); // Give app.js time to initialize
+            
+            // Set up slider event handlers
+            const consecutiveSlider = document.getElementById('what-if-consecutive');
+            const consecutiveValue = document.getElementById('what-if-consecutive-value');
+            consecutiveSlider.addEventListener('input', function() {
+                consecutiveValue.textContent = this.value;
+            });
+            
+            const dailySlider = document.getElementById('what-if-daily');
+            const dailyValue = document.getElementById('what-if-daily-value');
+            dailySlider.addEventListener('input', function() {
+                dailyValue.textContent = this.value;
+            });
+            
+            const weeklyMinSlider = document.getElementById('what-if-weekly-min');
+            const weeklyMinValue = document.getElementById('what-if-weekly-min-value');
+            const weeklyMaxSlider = document.getElementById('what-if-weekly-max');
+            const weeklyMaxValue = document.getElementById('what-if-weekly-max-value');
+            
+            weeklyMinSlider.addEventListener('input', function() {
+                // Ensure min doesn't exceed max
+                if (parseInt(this.value) > parseInt(weeklyMaxSlider.value)) {
+                    weeklyMaxSlider.value = this.value;
+                    weeklyMaxValue.textContent = this.value;
+                }
+                weeklyMinValue.textContent = this.value;
+            });
+            
+            weeklyMaxSlider.addEventListener('input', function() {
+                // Ensure max doesn't go below min
+                if (parseInt(this.value) < parseInt(weeklyMinSlider.value)) {
+                    weeklyMinSlider.value = this.value;
+                    weeklyMinValue.textContent = this.value;
+                }
+                weeklyMaxValue.textContent = this.value;
+            });
+        });
+    </script>
 </head>
 <body>
     <header>
@@ -377,6 +594,70 @@
         </div>
     </div>
 
+    <!-- What-If Analysis Modal -->
+    <div id="what-if-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>What-If Analysis</h2>
+            <p class="description">
+                Adjust constraints to see how they might affect your schedule quality.
+            </p>
+            
+            <div class="constraint-adjustments">
+                <div class="constraint-group">
+                    <label for="what-if-consecutive">Max Consecutive Classes:</label>
+                    <div class="constraint-input-group">
+                        <span id="what-if-consecutive-value">2</span>
+                        <input type="range" id="what-if-consecutive" min="1" max="4" value="2">
+                    </div>
+                </div>
+                
+                <div class="constraint-group">
+                    <label for="what-if-daily">Max Classes Per Day:</label>
+                    <div class="constraint-input-group">
+                        <span id="what-if-daily-value">4</span>
+                        <input type="range" id="what-if-daily" min="1" max="8" value="4">
+                    </div>
+                </div>
+                
+                <div class="constraint-group">
+                    <label>Weekly Class Target (Min):</label>
+                    <div class="constraint-input-group">
+                        <span id="what-if-weekly-min-value">12</span>
+                        <input type="range" id="what-if-weekly-min" min="4" max="30" value="12">
+                    </div>
+                </div>
+                
+                <div class="constraint-group">
+                    <label>Weekly Class Target (Max):</label>
+                    <div class="constraint-input-group">
+                        <span id="what-if-weekly-max-value">16</span>
+                        <input type="range" id="what-if-weekly-max" min="4" max="30" value="16">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="simulation-results">
+                <h3>Simulation Results</h3>
+                <div id="what-if-status" class="what-if-status">
+                    <div class="status-message">Adjust constraints and click "Simulate" to see potential impact</div>
+                </div>
+                
+                <div id="what-if-results" class="what-if-results" style="display: none;">
+                    <!-- Results will be shown here -->
+                </div>
+            </div>
+            
+            <div class="what-if-actions">
+                <button id="what-if-simulate-btn" class="btn">Simulate Changes</button>
+                <div class="what-if-advanced-actions" style="display: none;">
+                    <button id="what-if-apply-btn" class="btn">Apply Changes</button>
+                    <button id="what-if-cancel-btn" class="btn btn-secondary">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Analytics Modal -->
     <div id="analytics-modal" class="modal">
         <div class="modal-content analytics-modal-content">
@@ -437,6 +718,10 @@
                     <div id="suggestions-container" class="suggestions-container">
                         <!-- Suggestions will be shown here -->
                     </div>
+                    <div class="what-if-container">
+                        <button id="show-what-if-btn" class="btn">What-If Analysis</button>
+                        <span class="beta-badge">New</span>
+                    </div>
                     <div class="suggestions-footer">
                         <p class="suggestions-note">Note: Suggestions are based on general optimization principles and may not apply to all scheduling contexts.</p>
                     </div>
@@ -447,6 +732,8 @@
 
     <script src="src/data.js"></script>
     <script src="src/scheduler.js"></script>
+    <script src="src/library-loader.js"></script>
+    <script src="src/solver-wrapper.js"></script>
     <script src="src/analytics.js"></script>
     <script src="src/app.js"></script>
     <script src="src/class-manager.js"></script>

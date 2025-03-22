@@ -1,12 +1,34 @@
 // Main application logic
 
 document.addEventListener('DOMContentLoaded', async () => {
+    console.log('DOM fully loaded');
     const dataManager = new DataManager();
     const scheduler = new Scheduler(dataManager);
     
     // Make dataManager and scheduler available globally
     window.dataManager = dataManager;
     window.scheduler = scheduler;
+    
+    // Set up direct event handlers for What-If functionality after a short delay
+    // to ensure all other scripts have run
+    setTimeout(function() {
+        console.log('Setting up direct What-If button handlers...');
+        
+        const simulateBtn = document.getElementById('what-if-simulate-btn');
+        if (simulateBtn) {
+            console.log('Adding direct click handler for simulation button');
+            simulateBtn.addEventListener('click', function(event) {
+                console.log('Simulate button clicked (direct handler from app.js)');
+                if (typeof window.runWhatIfSimulation === 'function') {
+                    window.runWhatIfSimulation();
+                }
+                // Prevent event bubbling
+                event.stopPropagation();
+            }, true); // Use capture to ensure this runs first
+        } else {
+            console.warn('Simulation button not found in DOM yet');
+        }
+    }, 2000); // Wait 2 seconds to ensure everything is loaded
     
     // Add debugging helper for console
     window.debugScheduler = {
@@ -75,6 +97,134 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('save-schedule-btn').addEventListener('click', showSaveScheduleModal);
     document.getElementById('load-schedule-btn').addEventListener('click', showLoadScheduleModal);
     document.getElementById('analytics-btn').addEventListener('click', showAnalyticsModal);
+    
+    // Let's expose all the what-if analysis functions to the global scope
+    // so they can be accessed by the inline script
+    
+    // Expose the simulation and other functions to the global scope
+    console.log('Exposing What-If Analysis functions to global scope');
+    
+    // Make sure this is called AFTER all the functions are defined
+    document.addEventListener('DOMContentLoaded', function() {
+        // This will happen after the entire file is parsed and executed
+        console.log('Setting up What-If Analysis global object');
+        
+        // Add explicit function references
+        window.whatIfAnalysis = {
+            showWhatIfAnalysis: window.showWhatIfAnalysis,
+            runWhatIfSimulation: window.runWhatIfSimulation, // Reference the global function
+            displayWhatIfResults: displayWhatIfResults,
+            applyWhatIfResults: window.applyWhatIfResults
+        };
+        
+        console.log('What-If Analysis functions exposed:', Object.keys(window.whatIfAnalysis));
+    });
+    
+    // Define legacy object for backward compatibility 
+    window.whatIfAnalysis = {
+        runWhatIfSimulation: function() {
+            console.log('Running What-If simulation via legacy global object');
+            // Call the proper implementation with async/await support
+            if (typeof window.runWhatIfSimulation === 'function') {
+                window.runWhatIfSimulation();
+                return;
+            }
+            
+            // Fallback if the main function isn't available
+            const resultContainer = document.getElementById('what-if-results');
+            const statusContainer = document.getElementById('what-if-status');
+            const actionContainer = document.querySelector('.what-if-advanced-actions');
+            
+            // Show loading state
+            statusContainer.innerHTML = '<div class="loading-indicator">Running simulation (legacy)...</div>';
+            resultContainer.style.display = 'none';
+            if (actionContainer) actionContainer.style.display = 'none';
+            
+            try {
+                // Get current and new constraints
+                const currentConstraints = dataManager.getConfig();
+                const newConstraints = {
+                    maxConsecutiveClasses: parseInt(document.getElementById('what-if-consecutive').value),
+                    maxClassesPerDay: parseInt(document.getElementById('what-if-daily').value),
+                    minClassesPerWeek: parseInt(document.getElementById('what-if-weekly-min').value),
+                    maxClassesPerWeek: parseInt(document.getElementById('what-if-weekly-max').value)
+                };
+                
+                // Create a deep copy of schedule data
+                const scheduleCopy = JSON.parse(JSON.stringify(dataManager.scheduleWeeks));
+                
+                // Run the simulation - don't use await here as this is not in an async function
+                // Use promise chaining instead
+                ConstraintSolverWrapper.simulateConstraintChanges(
+                    scheduleCopy, 
+                    currentConstraints, 
+                    newConstraints
+                ).then(function(simulation) {
+                    whatIfState.lastSimulation = simulation;
+                    whatIfState.hasRun = true;
+                    
+                    // Display results
+                    displayWhatIfResults(simulation, currentConstraints, newConstraints);
+                    
+                    // Show advanced actions
+                    actionContainer.style.display = 'flex';
+                }).catch(function(error) {
+                    console.error('What-if simulation error (legacy):', error);
+                    statusContainer.innerHTML = `
+                        <div class="error-message">
+                            Simulation failed: ${error.message || 'Unknown error'}
+                            <button id="retry-simulation-btn" class="btn">Retry</button>
+                        </div>
+                    `;
+                    
+                    // Add retry handler
+                    document.getElementById('retry-simulation-btn').addEventListener('click', window.runWhatIfSimulation);
+                }).finally(function() {
+                    whatIfState.isLoading = false;
+                });
+                
+                // Return early since we're handling results in the promise chain
+                return;
+            } catch (error) {
+                console.error('What-if simulation error:', error);
+                statusContainer.innerHTML = `
+                    <div class="error-message">
+                        Simulation failed: ${error.message || 'Unknown error'}
+                        <button id="retry-simulation-btn" class="btn">Retry</button>
+                    </div>
+                `;
+                
+                // Add retry handler
+                document.getElementById('retry-simulation-btn').addEventListener('click', window.whatIfAnalysis.runWhatIfSimulation);
+            } finally {
+                whatIfState.isLoading = false;
+            }
+        },
+        applyWhatIfResults: function() {
+            console.log('Applying What-If results via global object');
+            
+            // Get new constraint values
+            const newConstraints = {
+                maxConsecutiveClasses: parseInt(document.getElementById('what-if-consecutive').value),
+                maxClassesPerDay: parseInt(document.getElementById('what-if-daily').value),
+                minClassesPerWeek: parseInt(document.getElementById('what-if-weekly-min').value),
+                maxClassesPerWeek: parseInt(document.getElementById('what-if-weekly-max').value)
+            };
+            
+            // If we have invalid placements, ask for confirmation
+            if (whatIfState.lastSimulation && whatIfState.lastSimulation.invalidPlacements.length > 0) {
+                if (confirm(`Applying these constraints will cause ${whatIfState.lastSimulation.invalidPlacements.length} invalid placements. Do you want to continue?`)) {
+                    applyConstraintChangesWithRemovals(newConstraints, whatIfState.lastSimulation.invalidPlacements);
+                }
+            } else {
+                // No invalid placements, apply directly
+                applyConstraintChangesWithRemovals(newConstraints, []);
+            }
+        },
+        setupWhatIfSliders: window.setupWhatIfSliders
+    };
+    
+    console.log('What-If Analysis functions exposed:', Object.keys(window.whatIfAnalysis));
     
     // This event listener was causing duplicate submissions
     // See the setTimeout below that adds onsubmit handler
@@ -1735,6 +1885,432 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         // Add event listener for generate suggestions button
         document.getElementById('generate-suggestions-btn').addEventListener('click', generateAndDisplaySuggestions);
+        
+        // Add direct event listener to the What-If button
+        const whatIfButton = document.getElementById('show-what-if-btn');
+        if (whatIfButton) {
+            console.log('Found What-If button in analytics modal, adding click handler');
+            whatIfButton.onclick = function() {
+                console.log('What-If button clicked directly');
+                showWhatIfAnalysis();
+            };
+        } else {
+            console.error('What-If button not found in analytics modal');
+        }
+    }
+    
+    // Track what-if state
+    const whatIfState = {
+        isLibraryLoaded: false,
+        hasRun: false,
+        lastSimulation: null,
+        isLoading: false
+    };
+    
+    // Expose this function to the global scope for the inline onclick handler
+    window.showWhatIfAnalysis = function() {
+        console.log('showWhatIfAnalysis function called');
+        
+        // Get the modal
+        const modal = document.getElementById('what-if-modal');
+        
+        // Reset the form to current constraint values
+        const currentConstraints = dataManager.getConfig();
+        
+        document.getElementById('what-if-consecutive').value = currentConstraints.maxConsecutiveClasses;
+        document.getElementById('what-if-consecutive-value').textContent = currentConstraints.maxConsecutiveClasses;
+        
+        document.getElementById('what-if-daily').value = currentConstraints.maxClassesPerDay;
+        document.getElementById('what-if-daily-value').textContent = currentConstraints.maxClassesPerDay;
+        
+        document.getElementById('what-if-weekly-min').value = currentConstraints.minClassesPerWeek;
+        document.getElementById('what-if-weekly-min-value').textContent = currentConstraints.minClassesPerWeek;
+        
+        document.getElementById('what-if-weekly-max').value = currentConstraints.maxClassesPerWeek;
+        document.getElementById('what-if-weekly-max-value').textContent = currentConstraints.maxClassesPerWeek;
+        
+        // Reset results
+        document.getElementById('what-if-results').style.display = 'none';
+        document.getElementById('what-if-status').innerHTML = '<div class="status-message">Adjust constraints and click "Simulate" to see potential impact</div>';
+        document.querySelector('.what-if-advanced-actions').style.display = 'none';
+        
+        // Setup sliders
+        setupWhatIfSliders();
+        
+        // Show the modal
+        modal.style.display = 'block';
+        
+        // Start preloading the solver library in the background
+        if (!whatIfState.isLibraryLoaded) {
+            whatIfState.isLibraryLoaded = true;
+            ConstraintSolverWrapper.initialize().catch(error => {
+                console.log('Solver preload failed, will use fallback simulation:', error);
+            });
+        }
+    }
+    
+    // Expose function globally
+    window.setupWhatIfSliders = function() {
+        // Max consecutive classes slider
+        const consecutiveSlider = document.getElementById('what-if-consecutive');
+        const consecutiveValue = document.getElementById('what-if-consecutive-value');
+        
+        consecutiveSlider.addEventListener('input', function() {
+            consecutiveValue.textContent = this.value;
+        });
+        
+        // Max daily classes slider
+        const dailySlider = document.getElementById('what-if-daily');
+        const dailyValue = document.getElementById('what-if-daily-value');
+        
+        dailySlider.addEventListener('input', function() {
+            dailyValue.textContent = this.value;
+        });
+        
+        // Weekly min-max sliders
+        const weeklyMinSlider = document.getElementById('what-if-weekly-min');
+        const weeklyMinValue = document.getElementById('what-if-weekly-min-value');
+        const weeklyMaxSlider = document.getElementById('what-if-weekly-max');
+        const weeklyMaxValue = document.getElementById('what-if-weekly-max-value');
+        
+        weeklyMinSlider.addEventListener('input', function() {
+            // Ensure min doesn't exceed max
+            if (parseInt(this.value) > parseInt(weeklyMaxSlider.value)) {
+                weeklyMaxSlider.value = this.value;
+                weeklyMaxValue.textContent = this.value;
+            }
+            weeklyMinValue.textContent = this.value;
+        });
+        
+        weeklyMaxSlider.addEventListener('input', function() {
+            // Ensure max doesn't go below min
+            if (parseInt(this.value) < parseInt(weeklyMinSlider.value)) {
+                weeklyMinSlider.value = this.value;
+                weeklyMinValue.textContent = this.value;
+            }
+            weeklyMaxValue.textContent = this.value;
+        });
+    }
+    
+    // Define the simulation function
+    // Using function declaration for better hoisting
+    async function runWhatIfSimulation() {
+        console.log('runWhatIfSimulation called - definition in app.js');
+        return await _runWhatIfSimulationImpl();
+    }
+    
+    // Expose it globally in multiple ways for maximum compatibility
+    window.runWhatIfSimulation = runWhatIfSimulation;
+    
+    // Implementation details - keep these private
+    async function _runWhatIfSimulationImpl() {
+        try {
+            console.log('Inside _runWhatIfSimulationImpl - getting DOM elements');
+            
+            const resultContainer = document.getElementById('what-if-results');
+            if (!resultContainer) {
+                console.error('Could not find what-if-results element');
+                alert('Error: Could not find the results container');
+                return;
+            }
+            
+            const statusContainer = document.getElementById('what-if-status');
+            if (!statusContainer) {
+                console.error('Could not find what-if-status element');
+                alert('Error: Could not find the status container');
+                return;
+            }
+            
+            const actionContainer = document.querySelector('.what-if-advanced-actions');
+            if (!actionContainer) {
+                console.error('Could not find what-if-advanced-actions element');
+                // Non-critical, so continue
+            }
+            
+            console.log('Running What-If simulation implementation with DOM elements:', {
+                resultContainer: resultContainer.id,
+                statusContainer: statusContainer.id,
+                actionContainer: actionContainer ? 'found' : 'not found'
+            });
+            
+            // Show loading state
+            whatIfState.isLoading = true;
+            statusContainer.innerHTML = '<div class="loading-indicator">Running simulation...</div>';
+            resultContainer.style.display = 'none';
+            if (actionContainer) {
+                actionContainer.style.display = 'none';
+            }
+            
+            // Get current and new constraints
+            const currentConstraints = dataManager.getConfig();
+            const newConstraints = {
+                maxConsecutiveClasses: parseInt(document.getElementById('what-if-consecutive').value),
+                maxClassesPerDay: parseInt(document.getElementById('what-if-daily').value),
+                minClassesPerWeek: parseInt(document.getElementById('what-if-weekly-min').value),
+                maxClassesPerWeek: parseInt(document.getElementById('what-if-weekly-max').value)
+            };
+            
+            // Validate that min doesn't exceed max
+            if (newConstraints.minClassesPerWeek > newConstraints.maxClassesPerWeek) {
+                throw new Error('Minimum weekly classes cannot be greater than maximum');
+            }
+            
+            // Create a deep copy of schedule data
+            const scheduleCopy = JSON.parse(JSON.stringify(dataManager.scheduleWeeks));
+            
+            // Run simulation with timeout protection
+            const timeoutMs = 5000; // 5 seconds timeout
+            const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('Simulation timed out')), timeoutMs);
+            });
+            
+            // Run the simulation
+            const simulationPromise = ConstraintSolverWrapper.simulateConstraintChanges(
+                scheduleCopy, 
+                currentConstraints, 
+                newConstraints
+            );
+            
+            // Race the simulation against the timeout
+            const simulation = await Promise.race([simulationPromise, timeoutPromise]);
+            whatIfState.lastSimulation = simulation;
+            whatIfState.hasRun = true;
+            
+            // Display results
+            displayWhatIfResults(simulation, currentConstraints, newConstraints);
+            
+            // Show advanced actions
+            actionContainer.style.display = 'flex';
+        } catch (error) {
+            console.error('What-if simulation error:', error);
+            statusContainer.innerHTML = `
+                <div class="error-message">
+                    Simulation failed: ${error.message || 'Unknown error'}
+                    <button id="retry-simulation-btn" class="btn">Retry</button>
+                </div>
+            `;
+            
+            // Add retry handler
+            document.getElementById('retry-simulation-btn').addEventListener('click', runWhatIfSimulation);
+        } finally {
+            whatIfState.isLoading = false;
+        }
+    }
+    
+    // This definition was moved to before the implementation - it's now redundant
+    // Additional logging to help debug
+    console.log('Simulation function exposed as window.runWhatIfSimulation:', typeof window.runWhatIfSimulation);
+    
+    function displayWhatIfResults(simulation, currentConstraints, newConstraints) {
+        const resultContainer = document.getElementById('what-if-results');
+        const statusContainer = document.getElementById('what-if-status');
+        
+        // Show appropriate status message
+        if (simulation.feasible) {
+            statusContainer.innerHTML = `
+                <div class="status-success">
+                    ✓ Schedule appears to be feasible with the new constraints
+                </div>
+            `;
+        } else {
+            statusContainer.innerHTML = `
+                <div class="status-warning">
+                    ⚠ These constraints would cause ${simulation.invalidPlacements.length} placement conflicts
+                </div>
+            `;
+        }
+        
+        // Helper function to format date
+        function formatDisplayDate(dateStr) {
+            const date = new Date(dateStr);
+            return date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+        }
+        
+        // Build results content
+        let resultsHtml = `
+            <h4>Impact Analysis</h4>
+            <table class="impact-table">
+                <tr>
+                    <th>Constraint</th>
+                    <th>Current</th>
+                    <th>Simulated</th>
+                </tr>
+                <tr>
+                    <td>Max Consecutive Classes</td>
+                    <td>${currentConstraints.maxConsecutiveClasses}</td>
+                    <td>${newConstraints.maxConsecutiveClasses}</td>
+                </tr>
+                <tr>
+                    <td>Max Classes Per Day</td>
+                    <td>${currentConstraints.maxClassesPerDay}</td>
+                    <td>${newConstraints.maxClassesPerDay}</td>
+                </tr>
+                <tr>
+                    <td>Weekly Class Target</td>
+                    <td>${currentConstraints.minClassesPerWeek}-${currentConstraints.maxClassesPerWeek}</td>
+                    <td>${newConstraints.minClassesPerWeek}-${newConstraints.maxClassesPerWeek}</td>
+                </tr>
+                <tr>
+                    <td>Valid Class Placements</td>
+                    <td>${simulation.currentClassCount || 'N/A'}</td>
+                    <td>${simulation.simulatedClassCount || simulation.currentClassCount - simulation.invalidPlacements.length}</td>
+                </tr>
+                <tr>
+                    <td>Invalid Placements</td>
+                    <td>0</td>
+                    <td>${simulation.invalidPlacements.length}</td>
+                </tr>
+            </table>
+        `;
+        
+        // Show affected placements if any
+        if (simulation.invalidPlacements.length > 0) {
+            resultsHtml += `
+                <h4>Affected Placements</h4>
+                <div class="affected-placements">
+                    <ul>
+            `;
+            
+            // Group by reason
+            const reasons = {};
+            simulation.invalidPlacements.forEach(placement => {
+                if (!reasons[placement.reason]) {
+                    reasons[placement.reason] = [];
+                }
+                reasons[placement.reason].push(placement);
+            });
+            
+            // Show grouped by reason
+            Object.entries(reasons).forEach(([reason, placements]) => {
+                resultsHtml += `<li><strong>${reason}</strong>: ${placements.length} placements</li>`;
+                
+                // Show up to 3 examples per reason
+                if (placements.length > 0) {
+                    resultsHtml += '<ul>';
+                    placements.slice(0, 3).forEach(placement => {
+                        resultsHtml += `
+                            <li>
+                                ${placement.className} on ${formatDisplayDate(placement.dateStr)} period ${placement.period}
+                            </li>
+                        `;
+                    });
+                    
+                    if (placements.length > 3) {
+                        resultsHtml += `<li>...and ${placements.length - 3} more</li>`;
+                    }
+                    
+                    resultsHtml += '</ul>';
+                }
+            });
+            
+            resultsHtml += `
+                    </ul>
+                </div>
+            `;
+        }
+        
+        resultContainer.innerHTML = resultsHtml;
+        resultContainer.style.display = 'block';
+    }
+    
+    // Expose function globally
+    window.applyWhatIfResults = function() {
+        // Get new constraint values
+        const newConstraints = {
+            maxConsecutiveClasses: parseInt(document.getElementById('what-if-consecutive').value),
+            maxClassesPerDay: parseInt(document.getElementById('what-if-daily').value),
+            minClassesPerWeek: parseInt(document.getElementById('what-if-weekly-min').value),
+            maxClassesPerWeek: parseInt(document.getElementById('what-if-weekly-max').value)
+        };
+        
+        // If we have invalid placements, ask for confirmation
+        if (whatIfState.lastSimulation && whatIfState.lastSimulation.invalidPlacements.length > 0) {
+            // Use the confirm dialog
+            const invalidPlacements = whatIfState.lastSimulation.invalidPlacements;
+            
+            // Build details HTML
+            let detailsHtml = `<p>The following ${invalidPlacements.length} placements will be removed:</p>`;
+            detailsHtml += '<ul>';
+            
+            invalidPlacements.slice(0, 5).forEach(p => {
+                const date = new Date(p.dateStr);
+                const formattedDate = date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+                detailsHtml += `<li>${p.className} on ${formattedDate} period ${p.period}</li>`;
+            });
+            
+            if (invalidPlacements.length > 5) {
+                detailsHtml += `<li>...and ${invalidPlacements.length - 5} more</li>`;
+            }
+            
+            detailsHtml += '</ul>';
+            
+            showConfirmDialog({
+                title: 'Apply Constraint Changes',
+                message: 'Changing these constraints will invalidate existing placements. What would you like to do?',
+                details: detailsHtml,
+                buttons: [
+                    {
+                        text: 'Remove invalid placements',
+                        class: 'btn',
+                        action: () => {
+                            applyConstraintChangesWithRemovals(newConstraints, invalidPlacements);
+                        }
+                    },
+                    {
+                        text: 'Cancel',
+                        class: 'btn btn-secondary',
+                        action: () => {
+                            // Do nothing
+                        }
+                    }
+                ]
+            });
+        } else {
+            // No invalid placements, apply directly
+            applyConstraintChangesWithRemovals(newConstraints, []);
+        }
+    }
+    
+    function applyConstraintChangesWithRemovals(newConstraints, invalidPlacements) {
+        // If there are invalid placements, remove them
+        if (invalidPlacements.length > 0) {
+            // Save current week offset to restore later
+            const currentWeek = dataManager.currentWeekOffset;
+            
+            invalidPlacements.forEach(placement => {
+                // Navigate to the week where the placement is located
+                dataManager.currentWeekOffset = placement.weekOffset;
+                // Then unschedule the class from that week
+                dataManager.unscheduleClass(placement.dateStr, placement.period);
+            });
+            
+            // Restore the current week
+            dataManager.currentWeekOffset = currentWeek;
+        }
+        
+        // Update constraints
+        dataManager.updateConfig(newConstraints);
+        
+        // Close the modal
+        document.getElementById('what-if-modal').style.display = 'none';
+        
+        // Update the schedule display
+        renderScheduleGrid();
+        renderUnscheduledClasses();
+        updateProgress();
+        updateConstraintStatus();
+        
+        // Update analytics if it's still open
+        if (document.getElementById('analytics-modal').style.display === 'block') {
+            updateAnalyticsView();
+        }
+        
+        // Show message
+        if (invalidPlacements.length > 0) {
+            showMessage('warning', `Constraints updated. ${invalidPlacements.length} affected classes have been unscheduled.`);
+        } else {
+            showMessage('success', 'Constraints updated successfully.');
+        }
     }
     
     function generateAndDisplaySuggestions() {
