@@ -12,6 +12,7 @@ This project is a manual cooking class scheduler that helps users schedule cooki
 - **CSV Data Integration**: Implemented for class conflict data
 - **Analytics Dashboard**: Implemented read-only metrics and visualizations (Phase 1)
 - **Schedule Insights**: Implemented basic insights and optimization suggestions (Phase 2)
+- **What-If Analysis**: Implemented constraint simulation capabilities (Phase 3)
 
 ## Repository
 - GitHub: https://github.com/danfeder/thundersched_2
@@ -82,11 +83,12 @@ Following the phased approach from our implementation plan:
   - UI for generating and displaying suggestions
   - Optimized threshold parameters for better suggestions
 
-### Upcoming Phases
-- **Phase 3: What-If Analysis** (Next)
+- **Phase 3: What-If Analysis** ✅
   - Constraint simulation capabilities
   - Impact analysis for constraint changes
   - Lazy-loaded constraint solver
+
+### Upcoming Phases
 
 - **Phase 4: Enhanced Visualizations and Optimization**
   - Advanced canvas-based visualizations
@@ -99,7 +101,7 @@ Following the phased approach from our implementation plan:
 - [x] Class management interface
 - [x] Read-only analytics dashboard
 - [x] Basic optimization suggestions
-- [ ] What-if constraint analysis
+- [x] What-if constraint analysis
 - [ ] Enhanced visualization and optimization
 
 ## Future Enhancements
