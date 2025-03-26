@@ -2187,9 +2187,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             
             // Run the simulation
             const simulationPromise = ConstraintSolverWrapper.simulateConstraintChanges(
-                scheduleCopy, 
-                currentConstraints, 
-                newConstraints
+                scheduleCopy,
+                currentConstraints,
+                newConstraints,
+                dataManager // Pass the dataManager instance
             );
             
             // Race the simulation against the timeout
@@ -2226,20 +2227,54 @@ document.addEventListener('DOMContentLoaded', async () => {
         const resultContainer = document.getElementById('what-if-results');
         const statusContainer = document.getElementById('what-if-status');
         
-        // Show appropriate status message
+        // --- Show Source & Status Message ---
+        let sourceMessage = '';
+        if (simulation.source && simulation.source !== 'solver') {
+            let fallbackReason = 'an unknown issue';
+            if (simulation.source.includes('fallback_init_error')) fallbackReason = 'solver initialization failed';
+            else if (simulation.source.includes('fallback_solver_missing')) fallbackReason = 'solver was missing after initialization';
+            else if (simulation.source.includes('fallback_timeout')) fallbackReason = 'solver timed out';
+            else if (simulation.source.includes('fallback_solver_error')) fallbackReason = 'solver reported an error';
+            else if (simulation.source.includes('fallback_runtime_error')) fallbackReason = 'an unexpected error occurred during simulation';
+            else if (simulation.source.includes('solver_infeasible_fallback_analysis')) fallbackReason = 'solver found the schedule infeasible';
+            else if (simulation.source.includes('basicSimulation')) fallbackReason = 'basic simulation was used'; // For older results if any
+
+            sourceMessage = `
+                <div class="status-info">
+                    <i>(Note: Analysis based on fallback simulation because ${fallbackReason}.)</i>
+                </div>
+            `;
+        }
+
+        let statusMessage = '';
         if (simulation.feasible) {
-            statusContainer.innerHTML = `
+            statusMessage = `
                 <div class="status-success">
                     ✓ Schedule appears to be feasible with the new constraints
                 </div>
             `;
         } else {
-            statusContainer.innerHTML = `
-                <div class="status-warning">
-                    ⚠ These constraints would cause ${simulation.invalidPlacements.length} placement conflicts
-                </div>
-            `;
+             // If infeasible but solver ran, the message is slightly different
+            if (simulation.source === 'solver_infeasible_fallback_analysis') {
+                 statusMessage = `
+                     <div class="status-error">
+                         ✗ Solver determined the schedule is <strong>infeasible</strong> with these constraints.
+                     </div>
+                     <div class="status-info">
+                         <i>Showing ${simulation.invalidPlacements.length} potential conflicts found by basic analysis:</i>
+                     </div>
+                 `;
+            } else {
+                 // Standard message for basic simulation or other fallbacks showing conflicts
+                 statusMessage = `
+                     <div class="status-warning">
+                         ⚠ These constraints would cause ${simulation.invalidPlacements.length} placement conflicts (based on fallback analysis)
+                     </div>
+                 `;
+            }
         }
+        
+        statusContainer.innerHTML = sourceMessage + statusMessage; // Prepend source info if any
         
         // Helper function to format date
         function formatDisplayDate(dateStr) {

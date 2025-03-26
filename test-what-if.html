@@ -61,8 +61,42 @@
     </div>
     
     <script src="src/library-loader.js"></script>
+    <script src="src/scheduler.js"></script> <!-- Include Scheduler -->
+    <script src="src/data.js"></script> <!-- Include DataManager -->
     <script src="src/solver-wrapper.js"></script>
     <script>
+        // --- Initialize DataManager & Scheduler ---
+        let dataManager;
+        let scheduler;
+        
+        try {
+            // 1. Initialize DataManager
+            console.log('Initializing DataManager for test page...');
+            dataManager = new DataManager();
+            window.dataManager = dataManager; // Make globally available
+            console.log('DataManager initialized successfully.');
+
+            // 2. Initialize Scheduler (needs DataManager)
+            console.log('Initializing Scheduler for test page...');
+            scheduler = new Scheduler(dataManager); // Pass dataManager instance
+            window.scheduler = scheduler; // Make globally available
+            console.log('Scheduler initialized successfully.');
+
+            // Optionally enable buttons only after successful initialization
+            // document.querySelectorAll('.test-block button').forEach(btn => btn.disabled = false);
+
+        } catch (error) {
+            console.error('Failed to initialize DataManager or Scheduler:', error);
+            alert('Error initializing core components for tests. Check console.');
+            // Disable buttons if init fails
+            // document.querySelectorAll('.test-block button').forEach(btn => btn.disabled = true);
+        }
+        // --- End Initialization ---
+
+        // Note: The DataManager initialization was wrapped in an async IIFE before,
+        // but since neither constructor seems to be async, it's removed for simplicity.
+        // If async operations were needed, they should be awaited properly.
+        
         // Test Library Loader
         async function testLibraryLoader() {
             const resultDiv = document.getElementById('library-loader-result');
@@ -79,9 +113,14 @@
                     Loaded libraries: ${JSON.stringify(LibraryLoader.loaded)}
                 `;
             } catch (error) {
-                resultDiv.innerHTML = `<strong>ERROR:</strong> ${error.message}`;
+                alert('Error initializing DataManager for tests. Check console.');
+                // Disable buttons if init fails
+                // document.querySelectorAll('.test-block button').forEach(btn => btn.disabled = true);
             }
-        }
+        } // Closing brace for testLibraryLoader function
+
+        // Test Library Loader
+        // Removed duplicate definition of testLibraryLoader
         
         // Test Solver Wrapper
         async function testSolverWrapper() {
@@ -154,7 +193,8 @@
                 const result = await ConstraintSolverWrapper.simulateConstraintChanges(
                     mockSchedule,
                     currentConstraints,
-                    newConstraints
+                    newConstraints,
+                    window.dataManager // Pass the global dataManager instance
                 );
                 
                 // Display results
