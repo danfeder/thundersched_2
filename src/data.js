@@ -1,7 +1,9 @@
 // Data handling for the scheduler
 
 export class DataManager { // Added export
-    constructor() {
+    // Accept scheduler instance for constraint validation
+    constructor(scheduler) {
+        this.scheduler = scheduler; // Store scheduler instance
         this.classes = [];
         
         // Default to next Monday - ensure the date is a proper Date object
@@ -193,11 +195,14 @@ export class DataManager { // Added export
     }
     
     getCurrentWeekSchedule() {
-        // Initialize if this week doesn't exist yet
+                // Initialize if this week doesn't exist yet
         if (!this.scheduleWeeks[this.currentWeekOffset]) {
-            this.initializeEmptyWeek(this.currentWeekOffset);
+                        this.initializeEmptyWeek(this.currentWeekOffset);
         }
-        
+        // Log the data being returned for this offset
+        console.log(`DataManager: Returning schedule for offset ${this.currentWeekOffset}:`, JSON.stringify(this.scheduleWeeks[this.currentWeekOffset] || {}));
+        // Return the schedule data for the current week offset
+        return this.scheduleWeeks[this.currentWeekOffset];
         return this.scheduleWeeks[this.currentWeekOffset];
     }
 
@@ -608,8 +613,9 @@ export class DataManager { // Added export
     
     validateExistingScheduleAgainstConstraints() {
         // This will be called after initialization to check existing schedule against default constraints
-        if (Object.keys(this.scheduleWeeks).length > 0 && window.scheduler) {
-            const invalidPlacements = window.scheduler.findInvalidPlacementsWithNewConstraints(this.config);
+        // Use the stored scheduler instance instead of global window.scheduler
+        if (Object.keys(this.scheduleWeeks).length > 0 && this.scheduler) {
+            const invalidPlacements = this.scheduler.findInvalidPlacementsWithNewConstraints(this.config);
             if (invalidPlacements.length > 0) {
                 console.warn(`Found ${invalidPlacements.length} placement(s) that violate current constraints`);
                 // We don't auto-remove them, but could notify the user in the UI

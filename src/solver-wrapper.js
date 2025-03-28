@@ -822,3 +822,6 @@ const ConstraintSolverWrapper = (function() {
         }
     };
 })();
+
+// Export the IIFE result as the default ES Module export
+export default ConstraintSolverWrapper;

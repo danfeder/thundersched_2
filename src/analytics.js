@@ -594,7 +594,5 @@ const ScheduleAnalytics = (function() {
     };
 })();
 
-// Export for use in other modules
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = ScheduleAnalytics;
-}
+// Export for use in other modules using ES module syntax
+export default ScheduleAnalytics;

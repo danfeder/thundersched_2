@@ -123,7 +123,8 @@ const mockDataManagerInstance = {
 };
 jest.unstable_mockModule('../src/data.js', () => ({
     __esModule: true,
-    default: jest.fn().mockImplementation(() => mockDataManagerInstance),
+    // Correct: Provide a named export 'DataManager' matching the actual module
+    DataManager: jest.fn().mockImplementation(() => mockDataManagerInstance),
 }));
 
 // Mock Scheduler
@@ -137,7 +138,8 @@ const mockSchedulerInstance = {
 };
 jest.unstable_mockModule('../src/scheduler.js', () => ({
     __esModule: true,
-    default: jest.fn().mockImplementation(() => mockSchedulerInstance),
+    // Correct: Provide a named export 'Scheduler' matching the actual module
+    Scheduler: jest.fn().mockImplementation(() => mockSchedulerInstance),
 }));
 
 // Mock Analytics
@@ -198,7 +200,10 @@ describe('App Initialization and Core UI (Characterization)', () => {
         const schedulerModule = await import('../src/scheduler.js');
         Scheduler = schedulerModule.default;
     });
-
+    
+    // Store original confirm
+    const originalConfirm = window.confirm;
+    
     beforeEach(async () => {
         // Reset mocks and console
         jest.clearAllMocks();
@@ -208,7 +213,10 @@ describe('App Initialization and Core UI (Characterization)', () => {
 
         // Mock scrollIntoView as it's not implemented in JSDOM
         window.Element.prototype.scrollIntoView = jest.fn();
-
+    
+        // Mock window.confirm to always return true for tests
+        window.confirm = jest.fn(() => true);
+    
         // Set up DOM from index.html
         // Read index.html content (replace with actual read_file result in real scenario)
         const htmlContent = `
@@ -352,6 +360,11 @@ describe('App Initialization and Core UI (Characterization)', () => {
 
     });
 
+    afterEach(() => {
+        // Restore original confirm
+        window.confirm = originalConfirm;
+    });
+
     test('should initialize UI elements on load', async () => {
         // Assert that core elements are present
         expect(screen.getByRole('heading', { name: /cooking class scheduler assistant/i })).toBeInTheDocument();
@@ -458,6 +471,8 @@ describe('App Initialization and Core UI (Characterization)', () => {
                 getData: (format) => {
                      if (format === 'text/plain') return classNameToDrag;
                      if (format === 'source') return 'unscheduled'; // Simulate source
+                     if (format === 'originalDate') return null; // Add null for completeness
+                     if (format === 'originalPeriod') return null; // Add null for completeness
                      return null;
                 }
             }

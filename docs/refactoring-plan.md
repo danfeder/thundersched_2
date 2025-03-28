@@ -15,14 +15,19 @@
     *   [x] Move helper functions (`createElementWithClass`, `showMessage`) to `UIManager`.
     *   [x] Update `app.js` to import and use `UIManager` for moved functions.
     *   [x] Fix browser module loading (`type="module"` in `index.html`, add necessary exports/imports).
-    *   [ ] Move `initializeUI` to `UIManager`.
-    *   [ ] Move `renderScheduleGrid` to `UIManager`.
-    *   [ ] Move `renderUnscheduledClasses` to `UIManager`.
-    *   [ ] Move other rendering/DOM functions to `UIManager`.
-    *   [ ] Create `AppInitializer`.
-    *   [ ] Create `EventHandlerService`.
-    *   [ ] Extract Feature Controllers.
-    *   [ ] Decouple Globals.
+    *   [x] Move `initializeUI` to `UIManager`. (Verified with tests, except known D&D issue)
+    *   [x] Move `renderScheduleGrid` to `UIManager`. (Verified with tests, except known D&D issue)
+    *   [x] Move `renderUnscheduledClasses` to `UIManager`. (Verified with tests, except known D&D issue)
+    *   [x] Move `highlightAvailableSlots` to `UIManager`. (Verified with tests, except known D&D issue)
+    *   [x] Move `clearHighlights` to `UIManager`. (Verified with tests, except known D&D issue)
+    *   [x] Move `updateProgress` to `UIManager`. (Verified with tests, except known D&D issue)
+    *   [x] Move `updateCurrentWeekDisplay` to `UIManager`. (Verified with tests, except known D&D issue)
+    *   [x] Move `updateConstraintStatus` to `UIManager`. (Verified with tests, except known D&D issue)
+    *   [x] Move `markTeacherUnavailabilityPeriods` to `UIManager`. (Verified with tests)
+    *   [x] Create `AppInitializer`. (Moved init logic, updated index.html)
+    *   [x] Create `EventHandlerService`. (Moved interaction handlers: drag/drop, buttons, date, teacher mode, cell click)
+    *   [x] Extract Feature Controllers. (Created Config, SaveLoad, Analytics, WhatIf controllers; moved functions)
+    *   [x] Decouple Globals.
 *   [ ] **Refactoring `src/data.js` (Target 2)**
 *   [ ] **Refactoring `src/class-manager.js` (Target 3)**
 *   [ ] **Refactoring `src/solver-wrapper.js` (Target 4)**
