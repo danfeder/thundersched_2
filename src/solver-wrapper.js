@@ -275,6 +275,40 @@ const ConstraintSolverWrapper = (function() {
             }
         });
 
+        // 5. Class Assignment: Each class must be scheduled exactly once
+        const classAssignmentMap = {}; // { classIdx: [varNames] }
+        varMap.forEach((details, varName) => {
+            const key = details.classIdx;
+            if (!classAssignmentMap[key]) {
+                classAssignmentMap[key] = [];
+            }
+            classAssignmentMap[key].push({ name: varName, coef: 1 });
+        });
+
+        // Ensure we have a constraint for every class defined
+        for (let i = 0; i < classDefinitions.length; i++) {
+             const classVars = classAssignmentMap[i] || [];
+             // Only add constraint if there are possible variables for this class
+             // If a class has no possible slots due to hard conflicts/unavailability, the model becomes infeasible here
+             if (classVars.length > 0) {
+                constraints.push({
+                    name: `assign_class_${i}`,
+                    vars: classVars,
+                    bnds: { type: _solver.GLP_FX, lb: 1.0, ub: 1.0 } // Sum = 1
+                });
+            } else {
+                 // If a class has NO potential variables, the schedule is inherently infeasible
+                 // We could potentially throw an error here or let the solver handle it
+                 console.warn(`Class ${classDefinitions[i]?.name || i} has no valid placement options based on hard conflicts/unavailability.`);
+                 // Adding a dummy infeasible constraint to make sure solver fails predictably
+                 constraints.push({
+                    name: `assign_class_${i}_INFEASIBLE`,
+                    vars: [{ name: variables[0].name, coef: 1 }], // Use any existing variable
+                    bnds: { type: _solver.GLP_FX, lb: 10.0, ub: 10.0 } // Force infeasibility (var is binary 0/1)
+                 });
+            }
+        }
+
         // --- Assemble Problem Structure ---
         const problem = {
             name: 'schedule_feasibility',
@@ -406,7 +440,7 @@ const ConstraintSolverWrapper = (function() {
     /**
      * Basic constraint simulation without using external solver
      * @param {Object} scheduleData - Schedule data
-     * @param {Object} currentConstraints - Current constraints
+     * @param {Object} currentConstraints - Current constraints (Note: This seems unused now, consider removing later)
      * @param {Object} newConstraints - Modified constraints
      * @return {Object} Simulation results
      */
@@ -655,6 +689,7 @@ const ConstraintSolverWrapper = (function() {
                 let currentClassCount = 0;
                 let simulatedClassCount = 0;
                 let source = 'unknown';
+                let feasibleSchedule = {}; // Initialize feasible schedule object
                 
                 // Calculate current class count once
                  Object.values(scheduleData).forEach(week => {
@@ -696,7 +731,7 @@ const ConstraintSolverWrapper = (function() {
                                     // Check its value in the solution
                                     if (foundVarName && solution[foundVarName] !== undefined) {
                                          if (solution[foundVarName] >= 0.5) {
-                                             simulatedClassCount++; // Count classes kept by the solver
+                                             //simulatedClassCount++; // Count classes kept by the solver -- REMOVE THIS LINE
                                          } else {
                                              // This originally scheduled class is NOT in the feasible solution
                                              invalidPlacements.push({
@@ -733,6 +768,21 @@ const ConstraintSolverWrapper = (function() {
                         });
                     });
                     
+                    // Now, build the feasible schedule from the solver's solution
+                    for (const [varName, details] of varMap.entries()) {
+                        if (solution[varName] !== undefined && solution[varName] >= 0.5) {
+                            const { weekOffset, dateStr, period, className } = details;
+                            if (!feasibleSchedule[weekOffset]) {
+                                feasibleSchedule[weekOffset] = {};
+                            }
+                            if (!feasibleSchedule[weekOffset][dateStr]) {
+                                feasibleSchedule[weekOffset][dateStr] = {}; // Initialize day object if needed
+                            }
+                            feasibleSchedule[weekOffset][dateStr][period] = className;
+                            simulatedClassCount++; // Correctly count placements in the feasible solution
+                        }
+                    }
+                    
                 } else if (solverResult.status === 'infeasible') {
                     console.log("Solver returned INFEASIBLE.");
                     feasible = false;
@@ -758,6 +808,7 @@ const ConstraintSolverWrapper = (function() {
                     invalidPlacements,
                     currentClassCount,
                     simulatedClassCount,
+                    feasibleSchedule, // Add the feasible schedule here
                     source,
                     // Add any other metrics if needed
                 };

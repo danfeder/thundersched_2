@@ -570,6 +570,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             cell.classList.remove('available');
             cell.classList.remove('conflict');
             // Do NOT remove the teacher-unavailable class here
+            
+            // Clear tooltip unless it's a scheduled cell or teacher unavailable cell
+            if (!cell.classList.contains('scheduled')) {
+                // If it's a teacher-unavailable cell, set appropriate tooltip
+                if (cell.classList.contains('teacher-unavailable')) {
+                    cell.title = 'Conflict: Teacher is unavailable during this period.';
+                } else {
+                    cell.removeAttribute('title');
+                }
+            }
         });
         
         // Get current week dates
@@ -2236,7 +2246,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             else if (simulation.source.includes('fallback_timeout')) fallbackReason = 'solver timed out';
             else if (simulation.source.includes('fallback_solver_error')) fallbackReason = 'solver reported an error';
             else if (simulation.source.includes('fallback_runtime_error')) fallbackReason = 'an unexpected error occurred during simulation';
-            else if (simulation.source.includes('solver_infeasible_fallback_analysis')) fallbackReason = 'solver found the schedule infeasible';
             else if (simulation.source.includes('basicSimulation')) fallbackReason = 'basic simulation was used'; // For older results if any
 
             sourceMessage = `
@@ -2307,14 +2316,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <td>${newConstraints.minClassesPerWeek}-${newConstraints.maxClassesPerWeek}</td>
                 </tr>
                 <tr>
-                    <td>Valid Class Placements</td>
+                    <td>Total Placements</td>
                     <td>${simulation.currentClassCount || 'N/A'}</td>
-                    <td>${simulation.simulatedClassCount || simulation.currentClassCount - simulation.invalidPlacements.length}</td>
-                </tr>
-                <tr>
-                    <td>Invalid Placements</td>
-                    <td>0</td>
-                    <td>${simulation.invalidPlacements.length}</td>
+                    <td>${simulation.simulatedClassCount !== undefined ? simulation.simulatedClassCount : 'N/A'}</td>
                 </tr>
             </table>
         `;
@@ -2322,7 +2326,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Show affected placements if any
         if (simulation.invalidPlacements.length > 0) {
             resultsHtml += `
-                <h4>Affected Placements</h4>
+                <h4>Placements Removed by Solver</h4>
                 <div class="affected-placements">
                     <ul>
             `;
@@ -2343,6 +2347,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 // Show up to 3 examples per reason
                 if (placements.length > 0) {
                     resultsHtml += '<ul>';
+                    
                     placements.slice(0, 3).forEach(placement => {
                         resultsHtml += `
                             <li>
@@ -2365,6 +2370,40 @@ document.addEventListener('DOMContentLoaded', async () => {
             `;
         }
         
+        // Show the feasible schedule if it exists and is not empty
+        if (simulation.feasibleSchedule && Object.keys(simulation.feasibleSchedule).length > 0) {
+            resultsHtml += `
+                <h4>Proposed Feasible Schedule (${simulation.simulatedClassCount} placements)</h4>
+                <div class="feasible-schedule-list">
+                    <ul>
+            `;
+            
+            // Sort weeks and dates for consistent display
+            const sortedWeeks = Object.keys(simulation.feasibleSchedule).sort((a, b) => parseInt(a) - parseInt(b));
+            
+            sortedWeeks.forEach(weekOffset => {
+                const weekData = simulation.feasibleSchedule[weekOffset];
+                
+                // Sort dates within each week
+                const sortedDates = Object.keys(weekData).sort();
+                
+                sortedDates.forEach(dateStr => {
+                    const dayData = weekData[dateStr];
+                    const sortedPeriods = Object.keys(dayData).sort((a, b) => parseInt(a) - parseInt(b));
+                    
+                    sortedPeriods.forEach(period => {
+                        const className = dayData[period];
+                        resultsHtml += `<li>${className} on ${formatDisplayDate(dateStr)} period ${period}</li>`;
+                    });
+                });
+            });
+
+            resultsHtml += `
+                    </ul>
+                </div>
+            `;
+        }
+
         resultContainer.innerHTML = resultsHtml;
         resultContainer.style.display = 'block';
     }
@@ -2571,7 +2610,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             document.getElementById('metric-span').textContent = 'Unavailable';
             document.getElementById('metric-balance').textContent = 'Unavailable';
             document.getElementById('metric-quality').textContent = 'Unavailable';
-            document.getElementById('analytics-insights-content').innerHTML = '<p>Unable to generate analytics at this time. Please try again later.</p>';
+            document.getElementById('analytics-insights-content').innerHTML = '<p>Unable to generate analytics at this time. Please try again.</p>';
         }
     }
     
