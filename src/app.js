@@ -1,4 +1,7 @@
 // Main application logic
+import uiManager from './ui-manager.js';
+import { DataManager } from './data.js'; // Use named import
+import { Scheduler } from './scheduler.js'; // Use named import
 
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('DOM fully loaded');
@@ -125,12 +128,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         localStorage.setItem('teacher-unavailability', JSON.stringify(dataManager.teacherUnavailability));
         console.log("Teacher unavailability explicitly saved to localStorage");
     };
-    
-    // Make render functions available globally
-    window.renderUnscheduledClasses = renderUnscheduledClasses;
-    window.updateProgress = updateProgress;
-    window.showMessage = showMessage;
-    
+
+    // Removed global assignments for functions moved/to be moved
+    // window.renderUnscheduledClasses = renderUnscheduledClasses;
+    // window.updateProgress = updateProgress;
+    // window.showMessage = showMessage;
+
     // Global state for teacher mode
     let teacherModeActive = false;
     
@@ -147,8 +150,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateConstraintStatus();
     
     // Show welcome message
-    showMessage('info', 'Welcome! Click on a class to see available slots, then drag and drop to schedule it.', 6000);
-    
+    uiManager.showMessage('info', 'Welcome! Click on a class to see available slots, then drag and drop to schedule it.', 6000);
+
     // Add event listeners for buttons
     document.getElementById('suggest-next-btn').addEventListener('click', suggestNextClass);
     document.getElementById('export-btn').addEventListener('click', exportSchedule);
@@ -375,7 +378,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         })));
         
         // Add empty cell in top-left corner
-        scheduleGrid.appendChild(createElementWithClass('div', 'grid-header', ''));
+        scheduleGrid.appendChild(uiManager.createElementWithClass('div', 'grid-header', ''));
         
         // Add date headers
         weekDates.forEach(date => {
@@ -389,7 +392,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const options = { weekday: 'short', month: 'short', day: 'numeric' };
             const formattedDate = date.toLocaleDateString(undefined, options);
             
-            const headerCell = createElementWithClass('div', 'grid-header');
+            const headerCell = uiManager.createElementWithClass('div', 'grid-header');
             headerCell.innerHTML = formattedDate;
             headerCell.dataset.dayname = dayName; // Add data attribute for debugging
             scheduleGrid.appendChild(headerCell);
@@ -398,7 +401,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Add period rows with labels
         for (let period = 1; period <= 8; period++) {
             // Add period label
-            scheduleGrid.appendChild(createElementWithClass('div', 'period-label', `Period ${period}`));
+            scheduleGrid.appendChild(uiManager.createElementWithClass('div', 'period-label', `Period ${period}`));
             
             // Add cells for each day in this period
             weekDates.forEach(date => {
@@ -407,7 +410,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (dayName === 'Saturday' || dayName === 'Sunday') return;
                 
                 const dateStr = dataManager.getFormattedDate(date);
-                const cell = createElementWithClass('div', 'grid-cell');
+                const cell = uiManager.createElementWithClass('div', 'grid-cell');
                 cell.dataset.date = dateStr;
                 cell.dataset.period = period;
                 cell.dataset.dayname = dayName; // Add dayname for debugging
@@ -437,7 +440,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (className) {
                     const cell = document.querySelector(`.grid-cell[data-date="${dateStr}"][data-period="${period}"]`);
                     if (cell) {
-                        const classElement = createElementWithClass('div', 'scheduled-class', className);
+                        const classElement = uiManager.createElementWithClass('div', 'scheduled-class', className);
                         
                         // Make scheduled classes draggable
                         classElement.draggable = true;
@@ -522,7 +525,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const unscheduledClasses = dataManager.getUnscheduledClasses();
         
         unscheduledClasses.forEach(classInfo => {
-            const classElement = createElementWithClass('div', 'class-item', classInfo.name);
+            const classElement = uiManager.createElementWithClass('div', 'class-item', classInfo.name);
             classElement.draggable = true;
             classElement.dataset.className = classInfo.name;
             
@@ -755,8 +758,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 classInfo.conflicts[dayOfWeek].includes(Number(period))) {
                 
                 // Show error message
-                showMessage('error', `Cannot place ${className} here: Class has a conflict during this period.`);
-                
+                uiManager.showMessage('error', `Cannot place ${className} here: Class has a conflict during this period.`);
+
                 // If this was a scheduled class that we removed, put it back
                 if (source === 'scheduled') {
                     const originalDate = e.dataTransfer.getData('originalDate');
@@ -809,7 +812,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (source === 'scheduled') {
                 const date = new Date(dateStr);
                 const dayName = dataManager.getDayFromDate(date);
-                showMessage('success', `Moved ${className} to ${dayName}, ${dateStr}, Period ${period}`);
+                uiManager.showMessage('success', `Moved ${className} to ${dayName}, ${dateStr}, Period ${period}`);
             }
         } else {
             // If this was a scheduled class that we removed, put it back
@@ -819,9 +822,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 dataManager.scheduleClass(className, originalDate, originalPeriod);
                 renderScheduleGrid();
             }
-            
+
             // Show error message
-            showMessage('error', `Cannot place class here: ${validation.reason}`);
+            uiManager.showMessage('error', `Cannot place class here: ${validation.reason}`);
         }
     }
     
@@ -879,7 +882,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 highlightAvailableSlots(suggestedClass.name);
             }
         } else {
-            showMessage('success', 'All classes have been scheduled!');
+            uiManager.showMessage('success', 'All classes have been scheduled!');
         }
     }
     
@@ -926,11 +929,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        
+
         // Show success message
-        showMessage('success', 'Complete schedule for all weeks exported successfully!');
+        uiManager.showMessage('success', 'Complete schedule for all weeks exported successfully!');
     }
-    
+
     function showHelp() {
         document.getElementById('help-modal').style.display = 'block';
     }
@@ -946,9 +949,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             renderUnscheduledClasses();
             updateProgress();
             clearHighlights();
-            
+
             // Show message
-            showMessage('info', 'Schedule for the current week has been reset.');
+            uiManager.showMessage('info', 'Schedule for the current week has been reset.');
         }
     }
     
@@ -971,8 +974,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             try {
                 // Show visual feedback that change is happening
                 startDateInput.classList.add('updating');
-                showMessage('info', 'Updating schedule...');
-                
+                uiManager.showMessage('info', 'Updating schedule...');
+
                 // Use setTimeout to allow the UI to update before processing
                 setTimeout(() => {
                     // Parse the date from the input - use proper date construction to avoid timezone issues
@@ -1001,18 +1004,18 @@ document.addEventListener('DOMContentLoaded', async () => {
                     // Format date for display
                     const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
                     const displayDate = dataManager.scheduleStartDate.toLocaleDateString(undefined, options);
-                    showMessage('success', `Viewing week of ${displayDate}`);
-                    
+                    uiManager.showMessage('success', `Viewing week of ${displayDate}`);
+
                     // Remove updating class
                     startDateInput.classList.remove('updating');
                 }, 50);
             } catch (error) {
                 console.error("Date parsing error:", error);
                 startDateInput.classList.remove('updating');
-                showMessage('error', 'Invalid date format. Please try again.');
+                uiManager.showMessage('error', 'Invalid date format. Please try again.');
             }
         } else {
-            showMessage('error', 'Please select a valid date');
+            uiManager.showMessage('error', 'Please select a valid date');
         }
     }
     
@@ -1038,44 +1041,24 @@ document.addEventListener('DOMContentLoaded', async () => {
             weekDisplay.textContent = `${formattedStart} - ${formattedEnd}, ${year}`;
         }
     }
-    
-    function showMessage(type, message, duration = 4000) {
-        const messageArea = document.getElementById('message-area');
-        
-        // Clear previous message classes
-        messageArea.className = 'message-area';
-        
-        // Add the new message type
-        messageArea.classList.add(type);
-        messageArea.classList.add('visible');
-        messageArea.textContent = message;
-        
-        // Auto-hide after duration
-        setTimeout(() => {
-            messageArea.classList.remove('visible');
-        }, duration);
-    }
-    
-    function createElementWithClass(tagName, className, textContent = '') {
-        const element = document.createElement(tagName);
-        element.className = className;
-        element.textContent = textContent;
-        return element;
-    }
-    
+
+    // Removed: showMessage function (moved to UIManager)
+
+    // Removed: createElementWithClass function (moved to UIManager)
+
     // Teacher mode functions
     function toggleTeacherMode(e) {
         teacherModeActive = e.target.checked;
         
         if (teacherModeActive) {
             // Enable teacher mode UI
-            showMessage('info', 'Teacher Mode active. Click on time slots to mark when you are unavailable.', 6000);
+            uiManager.showMessage('info', 'Teacher Mode active. Click on time slots to mark when you are unavailable.', 6000);
             document.querySelectorAll('.grid-cell:not(.scheduled)').forEach(cell => {
                 cell.classList.add('teacher-mode-active');
             });
         } else {
             // Disable teacher mode UI
-            showMessage('info', 'Teacher Mode disabled. Back to regular scheduling mode.', 4000);
+            uiManager.showMessage('info', 'Teacher Mode disabled. Back to regular scheduling mode.', 4000);
             document.querySelectorAll('.grid-cell').forEach(cell => {
                 cell.classList.remove('teacher-mode-active');
             });
@@ -1193,8 +1176,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             document.getElementById('max-daily').value = 4;
             document.getElementById('min-weekly').value = 12;
             document.getElementById('max-weekly').value = 16;
-            
-            showMessage('info', 'Form reset to default values. Click Save to apply changes.');
+
+            uiManager.showMessage('info', 'Form reset to default values. Click Save to apply changes.');
         }
     }
     
@@ -1209,7 +1192,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         // Validate ranges
         if (newConfig.maxClassesPerWeek < newConfig.minClassesPerWeek) {
-            showMessage('error', 'Maximum weekly classes must be greater than minimum weekly classes.');
+            uiManager.showMessage('error', 'Maximum weekly classes must be greater than minimum weekly classes.');
             return;
         }
         
@@ -1266,7 +1249,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 renderUnscheduledClasses();
                                 updateProgress();
                                 updateConstraintStatus();
-                                showMessage('warning', `Constraints updated. ${invalidPlacements.length} invalid placements were removed.`);
+                                uiManager.showMessage('warning', `Constraints updated. ${invalidPlacements.length} invalid placements were removed.`);
                             }
                         },
                         {
@@ -1275,7 +1258,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                             action: () => {
                                 // Don't change config
                                 document.getElementById('config-modal').style.display = 'none';
-                                showMessage('info', 'Constraint changes cancelled to preserve current schedule.');
+                                uiManager.showMessage('info', 'Constraint changes cancelled to preserve current schedule.');
                             }
                         }
                     ]
@@ -1297,10 +1280,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (selectedClass) {
             highlightAvailableSlots(selectedClass.dataset.className);
         }
-        
-        showMessage('success', 'Scheduling constraints updated successfully.');
+
+        uiManager.showMessage('success', 'Scheduling constraints updated successfully.');
     }
-    
+
     function showConfirmDialog(options) {
         const modal = document.getElementById('confirm-dialog');
         const titleEl = document.getElementById('confirm-title');
@@ -1348,7 +1331,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Check if there's anything to save
         const hasScheduledClasses = scheduler.hasAnyClassesScheduled();
         if (!hasScheduledClasses) {
-            showMessage('error', 'Nothing to save. Please schedule at least one class first.');
+            uiManager.showMessage('error', 'Nothing to save. Please schedule at least one class first.');
             return;
         }
         
@@ -1384,7 +1367,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         const name = document.getElementById('schedule-name').value.trim();
         if (!name) {
-            showMessage('error', 'Please enter a schedule name.');
+            uiManager.showMessage('error', 'Please enter a schedule name.');
             isSavingSchedule = false;
             return;
         }
@@ -1393,9 +1376,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         const isDuplicateName = dataManager.savedSchedules.some(schedule => 
             schedule.name.toLowerCase() === name.toLowerCase()
         );
-        
+
         if (isDuplicateName) {
-            showMessage('error', `A schedule named "${name}" already exists. Please use a different name.`);
+            uiManager.showMessage('error', `A schedule named "${name}" already exists. Please use a different name.`);
             isSavingSchedule = false;
             return;
         }
@@ -1425,10 +1408,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (dataManager.addSavedSchedule(savedSchedule)) {
             // Hide modal
             document.getElementById('save-schedule-modal').style.display = 'none';
-            
-            showMessage('success', `Schedule "${name}" saved successfully.`);
+
+            uiManager.showMessage('success', `Schedule "${name}" saved successfully.`);
         }
-        
+
         // Reset the saving flag
         isSavingSchedule = false;
     }
@@ -1567,7 +1550,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     function showPreviewModal(scheduleId) {
         const savedSchedule = dataManager.getSavedScheduleById(scheduleId);
         if (!savedSchedule) {
-            showMessage('error', 'Could not find the saved schedule.');
+            uiManager.showMessage('error', 'Could not find the saved schedule.');
             return;
         }
         
@@ -1652,7 +1635,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Find the schedule by ID
         const savedSchedule = dataManager.getSavedScheduleById(id);
         if (!savedSchedule) {
-            showMessage('error', 'Could not find the saved schedule.');
+            uiManager.showMessage('error', 'Could not find the saved schedule.');
             return;
         }
         
@@ -1978,10 +1961,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             updateProgress();
             updateConstraintStatus();
             
-            showMessage('success', `Schedule "${savedSchedule.name}" loaded successfully.`);
+            uiManager.showMessage('success', `Schedule "${savedSchedule.name}" loaded successfully.`);
         } catch (error) {
             console.error('Error applying loaded schedule:', error);
-            showMessage('error', 'Failed to load schedule due to an error. Please try again.');
+            uiManager.showMessage('error', 'Failed to load schedule due to an error. Please try again.');
         }
     }
     
@@ -1994,9 +1977,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         // Delete the schedule
         if (dataManager.deleteSavedSchedule(id)) {
-            showMessage('success', `Schedule "${name}" deleted.`);
+            uiManager.showMessage('success', `Schedule "${name}" deleted.`);
         } else {
-            showMessage('error', `Failed to delete schedule "${name}". Please try again.`);
+            uiManager.showMessage('error', `Failed to delete schedule "${name}". Please try again.`);
         }
     }
     
@@ -2502,9 +2485,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         // Show message
         if (invalidPlacements.length > 0) {
-            showMessage('warning', `Constraints updated. ${invalidPlacements.length} affected classes have been unscheduled.`);
+            uiManager.showMessage('warning', `Constraints updated. ${invalidPlacements.length} affected classes have been unscheduled.`);
         } else {
-            showMessage('success', 'Constraints updated successfully.');
+            uiManager.showMessage('success', 'Constraints updated successfully.');
         }
     }
     
@@ -2678,7 +2661,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         heatmapContainer.className = 'heatmap-container';
         
         // Add empty top-left cell
-        heatmapContainer.appendChild(createElementWithClass('div', 'heatmap-header', ''));
+        heatmapContainer.appendChild(uiManager.createElementWithClass('div', 'heatmap-header', ''));
         
         // Add date headers
         dates.forEach(dateStr => {
@@ -2686,14 +2669,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             const options = { weekday: 'short', month: 'short', day: 'numeric' };
             const formattedDate = date.toLocaleDateString(undefined, options);
             
-            const header = createElementWithClass('div', 'heatmap-header', formattedDate);
+            const header = uiManager.createElementWithClass('div', 'heatmap-header', formattedDate);
             heatmapContainer.appendChild(header);
         });
         
         // Add rows for each period
         for (let period = 1; period <= 8; period++) {
             // Add period label
-            heatmapContainer.appendChild(createElementWithClass('div', 'heatmap-period', `P${period}`));
+            heatmapContainer.appendChild(uiManager.createElementWithClass('div', 'heatmap-period', `P${period}`));
             
             // Add cells for each date
             dates.forEach(dateStr => {
@@ -2714,7 +2697,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     cellClass = `heatmap-cell ${dayStatus}`;
                 }
                 
-                const cell = createElementWithClass('div', cellClass, className);
+                const cell = uiManager.createElementWithClass('div', cellClass, className);
                 heatmapContainer.appendChild(cell);
             });
         }

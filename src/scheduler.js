@@ -1,6 +1,6 @@
 // Scheduler logic
 
-class Scheduler {
+export class Scheduler { // Added export
     constructor(dataManager) {
         this.dataManager = dataManager;
     }

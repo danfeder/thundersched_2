@@ -1,6 +1,6 @@
 // Data handling for the scheduler
 
-class DataManager {
+export class DataManager { // Added export
     constructor() {
         this.classes = [];
         

@@ -1,3 +1,5 @@
+import uiManager from './ui-manager.js'; // Import UIManager
+
 // Class Manager functionality
 
 // Function to handle CSV import
@@ -31,7 +33,7 @@ function importCSVClasses() {
                             
                             // Check if there are any classes in the CSV
                             if (classData.length === 0) {
-                                showModalErrorMessage('No valid classes found in the CSV file');
+                                uiManager.showMessage('No valid classes found in the CSV file');
                                 return;
                             }
                             
@@ -67,16 +69,16 @@ function importCSVClasses() {
                                 }
                             }
                         } else {
-                            showModalErrorMessage('Data manager not available. Cannot import classes.');
+                            uiManager.showMessage('Data manager not available. Cannot import classes.');
                         }
                     } catch (error) {
                         console.error('Error processing CSV file:', error);
-                        showModalErrorMessage('Error processing CSV file: ' + error.message);
+                        uiManager.showMessage('Error processing CSV file: ' + error.message);
                     }
                 };
                 
                 reader.onerror = function() {
-                    showModalErrorMessage('Error reading the CSV file');
+                    uiManager.showMessage('Error reading the CSV file');
                 };
                 
                 reader.readAsText(file);
@@ -87,7 +89,7 @@ function importCSVClasses() {
         fileInput.click();
     } catch (error) {
         console.error('Error in CSV import:', error);
-        showModalErrorMessage('Error importing CSV: ' + error.message);
+        uiManager.showMessage('Error importing CSV: ' + error.message);
     }
 }
 
@@ -339,38 +341,7 @@ function clearConflicts() {
     });
 }
 
-// Function to show an error message within the modal
-function showModalErrorMessage(message) {
-    // Check if there's already an error message container
-    let errorContainer = document.querySelector('.modal-error-message');
-    
-    if (!errorContainer) {
-        // Create a new error container if it doesn't exist
-        errorContainer = document.createElement('div');
-        errorContainer.className = 'modal-error-message';
-        
-        // Insert it at the top of the class editor
-        const classEditor = document.querySelector('.class-editor');
-        if (classEditor && classEditor.firstChild) {
-            classEditor.insertBefore(errorContainer, classEditor.firstChild);
-        } else {
-            // Fallback to append to modal content
-            const modalContent = document.querySelector('.class-manager-content');
-            if (modalContent) {
-                modalContent.appendChild(errorContainer);
-            }
-        }
-    }
-    
-    // Set the error message
-    errorContainer.textContent = message;
-    errorContainer.style.display = 'block';
-    
-    // Hide the error message after a few seconds
-    setTimeout(() => {
-        errorContainer.style.display = 'none';
-    }, 5000);
-}
+// Removed corrupted showModalErrorMessage function definition
 
 // Add new class button handler
 document.getElementById('add-class-btn')?.addEventListener('click', function() {
@@ -536,7 +507,7 @@ document.getElementById('delete-class-btn')?.addEventListener('click', function(
     // Check if the class is scheduled anywhere
     if (window.dataManager?.isClassScheduled(selectedClassName)) {
         // Show error message in the modal
-        showModalErrorMessage(`Cannot delete ${selectedClassName} because it is scheduled. Unschedule it first.`);
+        uiManager.showMessage(`Cannot delete ${selectedClassName} because it is scheduled. Unschedule it first.`);
         
         // Also show in the main app if available
         if (window.showMessage) {
@@ -600,7 +571,7 @@ function showSaveClassCollectionModal() {
         if (window.showMessage) {
             window.showMessage('error', 'No classes to save. Please add at least one class first.');
         } else {
-            showModalErrorMessage('No classes to save. Please add at least one class first.');
+            uiManager.showMessage('No classes to save. Please add at least one class first.');
         }
         return;
     }
@@ -633,7 +604,7 @@ function handleSaveClassCollectionSubmit() {
     
     const name = document.getElementById('class-collection-name').value.trim();
     if (!name) {
-        showModalErrorMessage('Please enter a collection name.');
+        uiManager.showMessage('Please enter a collection name.');
         isSavingClassCollection = false;
         return;
     }
@@ -644,7 +615,7 @@ function handleSaveClassCollectionSubmit() {
     );
     
     if (isDuplicateName) {
-        showModalErrorMessage(`A collection named "${name}" already exists. Please use a different name.`);
+        uiManager.showMessage(`A collection named "${name}" already exists. Please use a different name.`);
         isSavingClassCollection = false;
         return;
     }
@@ -675,7 +646,7 @@ function handleSaveClassCollectionSubmit() {
         if (window.showMessage) {
             window.showMessage('success', `Class collection "${name}" saved successfully.`);
         } else {
-            showModalErrorMessage(`Class collection "${name}" saved successfully.`, 'success');
+            uiManager.showMessage(`Class collection "${name}" saved successfully.`, 'success');
         }
     }
     
@@ -766,7 +737,7 @@ function previewClassCollection(id) {
         if (window.showMessage) {
             window.showMessage('error', 'Could not find the saved class collection.');
         } else {
-            showModalErrorMessage('Could not find the saved class collection.');
+            uiManager.showMessage('Could not find the saved class collection.');
         }
         return;
     }
@@ -783,7 +754,7 @@ function loadClassCollection(id) {
         if (window.showMessage) {
             window.showMessage('error', 'Could not find the saved class collection.');
         } else {
-            showModalErrorMessage('Could not find the saved class collection.');
+            uiManager.showMessage('Could not find the saved class collection.');
         }
         return;
     }
@@ -816,13 +787,13 @@ function deleteClassCollection(id) {
         if (window.showMessage) {
             window.showMessage('success', `Class collection "${name}" deleted.`);
         } else {
-            showModalErrorMessage(`Class collection "${name}" deleted.`, 'success');
+            uiManager.showMessage(`Class collection "${name}" deleted.`, 'success');
         }
     } else {
         if (window.showMessage) {
             window.showMessage('error', `Failed to delete class collection "${name}". Please try again.`);
         } else {
-            showModalErrorMessage(`Failed to delete class collection "${name}". Please try again.`);
+            uiManager.showMessage(`Failed to delete class collection "${name}". Please try again.`);
         }
     }
 }
@@ -1014,7 +985,7 @@ function applyLoadedClassCollection(collection, mode) {
         if (window.showMessage) {
             window.showMessage('success', message);
         } else {
-            showModalErrorMessage(message, 'success');
+            uiManager.showMessage(message, 'success');
         }
         
     } catch (error) {
@@ -1022,43 +993,9 @@ function applyLoadedClassCollection(collection, mode) {
         if (window.showMessage) {
             window.showMessage('error', 'Failed to load class collection due to an error. Please try again.');
         } else {
-            showModalErrorMessage('Failed to load class collection due to an error. Please try again.');
+            uiManager.showMessage('Failed to load class collection due to an error. Please try again.');
         }
     }
 }
 
-// Helper function to show a modal message with a specified type (error or success)
-function showModalErrorMessage(message, type = 'error') {
-    // Check if there's already an error message container
-    let errorContainer = document.querySelector('.modal-error-message');
-    
-    if (!errorContainer) {
-        // Create a new error container if it doesn't exist
-        errorContainer = document.createElement('div');
-        errorContainer.className = 'modal-error-message';
-        
-        // Insert it at the top of the class editor
-        const classEditor = document.querySelector('.class-editor');
-        if (classEditor && classEditor.firstChild) {
-            classEditor.insertBefore(errorContainer, classEditor.firstChild);
-        } else {
-            // Fallback to append to modal content
-            const modalContent = document.querySelector('.class-manager-content');
-            if (modalContent) {
-                modalContent.appendChild(errorContainer);
-            }
-        }
-    }
-    
-    // Set appropriate class based on message type
-    errorContainer.className = `modal-error-message ${type === 'success' ? 'success' : 'error'}`;
-    
-    // Set the message
-    errorContainer.textContent = message;
-    errorContainer.style.display = 'block';
-    
-    // Hide the message after a few seconds
-    setTimeout(() => {
-        errorContainer.style.display = 'none';
-    }, 5000);
-}
+// Removed duplicate function declaration and its leftover implementation block
