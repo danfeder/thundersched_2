@@ -1,4 +1,5 @@
 import uiManager from './ui-manager.js'; // Assuming UIManager is a default export instance
+import { getDayFromDate, getFormattedDate } from './date-utils.js'; // Import date utilities
 // Import other necessary services/modules as needed
 // import dataManager from './data-manager.js'; // Example if needed
 // import scheduler from './scheduler.js'; // Example if needed
@@ -146,12 +147,12 @@ class EventHandlerService {
         }
         
         // First check if there's a class-specific conflict (these always take priority)
-        const classInfo = this.dataManager.getClasses().find(c => c.name === className); // Use this.dataManager
+        const classInfo = this.dataManager.classRepository.getClasses().find(c => c.name === className); // Use repository
         if (classInfo) {
             // Get the day of week for this date
             const [year, month, day] = dateStr.split('-').map(num => parseInt(num, 10));
             const date = new Date(year, month - 1, day);
-            const dayOfWeek = this.dataManager.getDayFromDate(date); // Use this.dataManager
+            const dayOfWeek = getDayFromDate(date); // Use imported function
             
             // Check for class conflict directly - this is a hard constraint that cannot be overridden
             if (classInfo.conflicts[dayOfWeek] &&
@@ -260,8 +261,8 @@ class EventHandlerService {
     }
 
     exportSchedule() {
-        // Get all weeks from the schedule
-        const allWeeks = this.dataManager.scheduleWeeks; // Use this.dataManager
+        // Get all weeks from the schedule via the DataStore
+        const allWeeks = this.dataManager.dataStore.scheduleWeeks; // Access via dataStore
         
         // Create CSV content
         let csvContent = 'Date,Day,Period 1,Period 2,Period 3,Period 4,Period 5,Period 6,Period 7,Period 8\n';
@@ -276,8 +277,8 @@ class EventHandlerService {
             const sortedDates = Object.keys(weekSchedule).sort();
             
             sortedDates.forEach(dateStr => {
-                const date = new Date(dateStr); // Assumes dateStr is 'YYYY-MM-DD'
-                const dayName = this.dataManager.getDayFromDate(date); // Use this.dataManager
+                const date = new Date(dateStr + 'T00:00:00Z'); // Ensure UTC parsing
+                const dayName = getDayFromDate(date); // Use imported function
                 
                 let row = `${dateStr},${dayName}`;
                 
@@ -367,12 +368,12 @@ class EventHandlerService {
                     uiManager.updateCurrentWeekDisplay();
                     
                     // Update date picker to show the Monday of the week
-                    const mondayDate = this.dataManager.getFormattedDate(this.dataManager.scheduleStartDate); // Use this.dataManager
+                    const mondayDate = getFormattedDate(this.dataManager.dataStore.scheduleStartDate); // Use imported fn and dataStore
                     startDateInput.value = mondayDate;
                     
                     // Format date for display
                     const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-                    const displayDate = this.dataManager.scheduleStartDate.toLocaleDateString(undefined, options); // Use this.dataManager
+                    const displayDate = this.dataManager.dataStore.scheduleStartDate.toLocaleDateString(undefined, options); // Use dataStore
                     uiManager.showMessage('success', `Viewing week of ${displayDate}`);
 
                     // Remove updating class
@@ -507,9 +508,21 @@ class EventHandlerService {
              console.warn("Start date picker element not found");
         }
 
-        // TODO: Add listeners for modal form submissions (config, save schedule)
-        // These will likely move to specific controllers later.
-        // Example: document.getElementById('config-form')?.addEventListener('submit', (e) => this.handleConfigFormSubmit(e));
+        // Add listeners for modal form submissions
+        const configForm = document.getElementById('config-form');
+        if (configForm) {
+            configForm.addEventListener('submit', (event) => {
+                event.preventDefault(); // Prevent default page reload
+                if (this.configController) {
+                    this.configController.handleConfigFormSubmit(); // Call controller method
+                } else {
+                    console.error("ConfigController not available for form submission");
+                }
+            });
+        } else {
+            console.warn("Config form element not found");
+        }
+        
         // Example: document.getElementById('save-schedule-form')?.addEventListener('submit', (e) => this.handleSaveScheduleSubmit(e));
         
         console.log("EventHandlerService: Global listeners attached.");

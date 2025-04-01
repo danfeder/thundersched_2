@@ -8,6 +8,7 @@ import AnalyticsController from './analytics-controller.js';
 import WhatIfController from './what-if-controller.js';
 // Assuming solver wrapper might need import if not handled globally/passed
 import ConstraintSolverWrapper from './solver-wrapper.js';
+import { getFormattedDate } from './date-utils.js'; // Import date utility
 // AnalyticsController already imports analytics.js
 
 class AppInitializer {
@@ -58,7 +59,7 @@ class AppInitializer {
         
         // Set dependencies on the UIManager instance using the new method
         if (this.uiManager && typeof this.uiManager.setDependencies === 'function') {
-                          this.uiManager.setDependencies(this.dataManager, this.eventHandlerService);
+                          this.uiManager.setDependencies(this.dataManager, this.scheduler, this.eventHandlerService); // Added scheduler
                      } else {
              console.error("Failed to load UIManager instance or setDependencies method not found.");
              return; // Cannot proceed without UIManager
@@ -99,10 +100,10 @@ class AppInitializer {
         // window.saveTeacherUnavailabilityToLocalStorage = function() { ... };
 
         // Global state for teacher mode (temporary - should move to state management or controller)
-        let teacherModeActive = false; 
+        let teacherModeActive = false;
         
-        // Load class data from CSV
-        await this.dataManager.loadClassesFromCSV();
+        // Load class data from CSV via the repository
+        await this.dataManager.classRepository.loadClassesFromCSV();
         
         // uiEventHandlers object is now obsolete as handlers are in EventHandlerService
     
@@ -162,7 +163,7 @@ class AppInitializer {
         // Initialize date picker with default start date
         const startDatePicker = document.getElementById('start-date');
         if (startDatePicker) {
-            const formattedStartDate = this.dataManager.getFormattedDate(this.dataManager.scheduleStartDate);
+            const formattedStartDate = getFormattedDate(this.dataManager.dataStore.scheduleStartDate); // Access via dataStore
             console.log("Setting date picker to:", formattedStartDate);
             startDatePicker.value = formattedStartDate;
         }
@@ -181,6 +182,7 @@ class AppInitializer {
 
 // Instantiate and initialize on script load
 const appInitializer = new AppInitializer();
+window.appInitializer = appInitializer; // Expose globally for temporary access
 document.addEventListener('DOMContentLoaded', () => {
     appInitializer.initialize().catch(error => {
         console.error("Error during app initialization:", error);

@@ -1,3 +1,6 @@
+// Import necessary date utilities
+import { getDayFromDate, getFormattedDate } from './date-utils.js';
+
 /**
  * UIManager
  * Handles direct DOM manipulation, rendering, and UI updates.
@@ -15,12 +18,14 @@ class UIManager {
     /**
      * Sets the required service dependencies for the UIManager.
      * @param {DataManager} dataManager - The DataManager instance.
+     * @param {Scheduler} scheduler - The Scheduler instance.
      * @param {EventHandlerService} eventHandlerService - The EventHandlerService instance.
      */
-    setDependencies(dataManager, eventHandlerService) {
-                this.dataManager = dataManager;
+    setDependencies(dataManager, scheduler, eventHandlerService) {
+        this.dataManager = dataManager;
+        this.scheduler = scheduler; // Store scheduler instance
         this.eventHandlerService = eventHandlerService;
-                            }
+    }
 
     /* Original constructor requiring dataManager:
     constructor(dataManager) { // Accept DataManager instance
@@ -113,6 +118,7 @@ class UIManager {
 
         // Get dates for the current week using the stored dataManager
         const weekDates = this.dataManager.getCurrentWeekDates();
+        console.log("[renderScheduleGrid] Received weekDates:", weekDates.map(d => d.toISOString())); // Log dates received by UI
 
         // Debug current week dates
         
@@ -121,18 +127,20 @@ class UIManager {
 
         // Add date headers
         weekDates.forEach(date => {
-            const dayName = this.dataManager.getDayFromDate(date);
+            const dayName = getDayFromDate(date); // Use imported function
             // Skip if it's a weekend day
             if (dayName === 'Saturday' || dayName === 'Sunday') return;
 
-            const dateStr = this.dataManager.getFormattedDate(date);
+            const dateStr = getFormattedDate(date); // Use imported function
 
-            // Format as "Mon, Mar 17"
-            const options = { weekday: 'short', month: 'short', day: 'numeric' };
-            const formattedDate = date.toLocaleDateString(undefined, options);
+            // Format using imported functions for consistency
+            const shortDayName = dayName.substring(0, 3); // Get "Mon", "Tue", etc.
+            const month = String(date.getUTCMonth() + 1).padStart(2, '0'); // Use UTC month
+            const dayOfMonth = String(date.getUTCDate()).padStart(2, '0'); // Use UTC day
+            const displayHeader = `${shortDayName}, ${month}/${dayOfMonth}`; // e.g., Mon, 04/07
 
             const headerCell = this.createElementWithClass('div', 'grid-header');
-            headerCell.innerHTML = formattedDate;
+            headerCell.innerHTML = displayHeader;
             headerCell.dataset.dayname = dayName; // Add data attribute for debugging
             scheduleGrid.appendChild(headerCell);
         });
@@ -144,11 +152,11 @@ class UIManager {
 
             // Add cells for each day in this period
             weekDates.forEach(date => {
-                const dayName = this.dataManager.getDayFromDate(date);
+                const dayName = getDayFromDate(date); // Use imported function
                 // Skip weekends
                 if (dayName === 'Saturday' || dayName === 'Sunday') return;
 
-                const dateStr = this.dataManager.getFormattedDate(date);
+                const dateStr = getFormattedDate(date); // Use imported function
                 const cell = this.createElementWithClass('div', 'grid-cell');
                 cell.dataset.date = dateStr;
                 cell.dataset.period = period;
@@ -224,7 +232,7 @@ class UIManager {
         // we change initializeUI to not clear everything. For now, keep it simple.
         // document.querySelectorAll('.grid-cell').forEach(cell => { ... }); // Clearing is handled by initializeUI
 
-        const schedule = this.dataManager.getSchedule();
+        const schedule = this.dataManager.getCurrentWeekSchedule(); // Use the correct method name
         // DEBUG: Log the schedule data being used for rendering
                 
         // Add scheduled classes to grid
@@ -458,14 +466,14 @@ class UIManager {
         // Get current week dates using internal dataManager
         const weekDates = this.dataManager.getCurrentWeekDates();
         
-        // Get the class info to check conflicts using internal dataManager
-        const classInfo = this.dataManager.getClasses().find(c => c.name === className);
+        // Get the class info to check conflicts using internal dataManager's repository
+        const classInfo = this.dataManager.classRepository.getClasses().find(c => c.name === className); // Use repository
         if (!classInfo) return;
         
         // Process all cells on the grid
         weekDates.forEach(date => {
-            const dateStr = this.dataManager.getFormattedDate(date);
-            const dayOfWeek = this.dataManager.getDayFromDate(date);
+            const dateStr = getFormattedDate(date); // Use imported function
+            const dayOfWeek = getDayFromDate(date); // Use imported function
             
             for (let period = 1; period <= 8; period++) {
                 const cell = document.querySelector(`.grid-cell[data-date="${dateStr}"][data-period="${period}"]`);
@@ -546,7 +554,7 @@ class UIManager {
             return;
         }
         
-        const totalClasses = this.dataManager.getClasses().length;
+        const totalClasses = this.dataManager.classRepository.getClasses().length; // Use repository
         // Handle division by zero if there are no classes
         if (totalClasses === 0) {
             const progressBar = document.getElementById('schedule-progress');
@@ -601,15 +609,16 @@ class UIManager {
             const startDate = dates[0];
             const endDate = dates[dates.length - 1];
             
-            // Format as "Mar 17 - Mar 21, 2025"
-            const formatOptions = { month: 'short', day: 'numeric' };
-            const yearOptions = { year: 'numeric' };
+            // Format using UTC methods to avoid timezone issues
+            const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
             
-            const formattedStart = startDate.toLocaleDateString(undefined, formatOptions);
-            const formattedEnd = endDate.toLocaleDateString(undefined, formatOptions);
-            const year = endDate.toLocaleDateString(undefined, yearOptions);
+            const startMonth = months[startDate.getUTCMonth()];
+            const startDay = startDate.getUTCDate();
+            const endMonth = months[endDate.getUTCMonth()];
+            const endDay = endDate.getUTCDate();
+            const year = endDate.getUTCFullYear();
             
-            weekDisplay.textContent = `${formattedStart} - ${formattedEnd}, ${year}`;
+            weekDisplay.textContent = `${startMonth} ${startDay} - ${endMonth} ${endDay}, ${year}`;
         } else {
             weekDisplay.textContent = "Week dates unavailable";
         }
@@ -669,7 +678,7 @@ class UIManager {
         const weekDates = this.dataManager.getCurrentWeekDates();
         
         weekDates.forEach(date => {
-            const dateStr = this.dataManager.getFormattedDate(date);
+            const dateStr = getFormattedDate(date); // Use imported function
             
             // Check each period for teacher unavailability
             for (let period = 1; period <= 8; period++) {

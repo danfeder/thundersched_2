@@ -132,8 +132,9 @@ class AnalyticsController {
     updateAnalyticsView() {
         try {
             // Create COPIES of data to prevent accidental modification
-            const scheduleCopy = JSON.parse(JSON.stringify(this.dataManager.scheduleWeeks));
-            const constraintsCopy = JSON.parse(JSON.stringify(this.dataManager.getConfig()));
+            const scheduleCopy = JSON.parse(JSON.stringify(this.dataManager.dataStore.scheduleWeeks)); // Access via dataStore
+            const constraintsCopy = JSON.parse(JSON.stringify(this.dataManager.getConfig())); // getConfig is correct
+            const classList = this.dataManager.classRepository.getClasses(); // Get class list
             
             // Calculate metrics using ScheduleAnalytics
             const metrics = ScheduleAnalytics.calculateMetrics(scheduleCopy, constraintsCopy);
@@ -141,8 +142,8 @@ class AnalyticsController {
             // Update UI with metrics
             this.updateMetricsDisplay(metrics);
             
-            // Update visualization based on currently selected view
-            this.updateVisualization(metrics);
+            // Update visualization based on currently selected view, passing class list
+            this.updateVisualization(metrics, classList);
             
             // Update insights using ScheduleAnalytics
             this.updateInsights(metrics);
@@ -186,7 +187,7 @@ class AnalyticsController {
     }
 
     // Method to update the visualization area based on the selected view type
-    updateVisualization(metrics) {
+    updateVisualization(metrics, classList) { // Added classList parameter
         const container = document.getElementById('analytics-visualization');
         const viewType = document.getElementById('analytics-view-selector')?.value;
         if (!container) return;
@@ -196,18 +197,19 @@ class AnalyticsController {
         
         try {
             switch (viewType) {
-                case 'heatmap':
-                    this.renderHeatmapVisualization(container, metrics);
+                case 'heatmap': // Pass classList here too, in case it's the default or used
+                    this.renderHeatmapVisualization(container, metrics, classList);
                     break;
-                case 'periods':
-                    this.renderPeriodUtilizationVisualization(container, metrics);
+                case 'periods': // Pass classList here, assuming it might handle distribution
+                    this.renderPeriodUtilizationVisualization(container, metrics, classList);
                     break;
-                case 'constraints':
+                case 'constraints': // Constraints likely don't need classList
                     this.renderConstraintVisualization(container, metrics);
                     break;
-                default:
+                // Removed the 'distribution' case as it's likely handled by an existing one
+                default: // Pass classList to default as well
                     console.warn(`Unknown visualization type: ${viewType}. Defaulting to heatmap.`);
-                    this.renderHeatmapVisualization(container, metrics); // Default view
+                    this.renderHeatmapVisualization(container, metrics, classList);
             }
         } catch (error) {
             console.error('Visualization error (safely contained):', error);
@@ -217,7 +219,14 @@ class AnalyticsController {
 
     // --- Visualization Rendering Methods ---
 
-    renderHeatmapVisualization(container, metrics) {
+    renderClassDistributionVisualization(container, metrics, classList) {
+        // TODO: Import and call the actual rendering function from visualization.js
+        // Assuming a function like: VisualizationService.renderClassDistribution(container, metrics, classList);
+        console.log("Placeholder: Rendering Class Distribution with metrics:", metrics, "and classList:", classList);
+        container.innerHTML = '<p style="text-align: center; padding: 20px;">Class Distribution Visualization Placeholder</p>';
+    }
+
+    renderHeatmapVisualization(container, metrics, classList) { // Added classList
         // Get all dates that have balance data
         const dates = Object.keys(metrics.dailyBalance || {}).sort();
         
@@ -264,7 +273,7 @@ class AnalyticsController {
         container.appendChild(heatmapContainer);
     }
 
-    renderPeriodUtilizationVisualization(container, metrics) {
+    renderPeriodUtilizationVisualization(container, metrics, classList) { // Added classList
         const periodData = metrics.periodUtilization || {};
         const chartContainer = document.createElement('div');
         chartContainer.className = 'period-chart-container';

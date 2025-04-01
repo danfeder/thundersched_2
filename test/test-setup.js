@@ -1,391 +1,469 @@
 // Test Setup and Utilities
 import { jest } from '@jest/globals';
 
-export const createMockDataManager = () => {
-  const state = {
-    classes: [],
-    scheduleWeeks: { 0: {} },
-    teacherUnavailability: {},
-    savedSchedules: []
-  };
-
-  const manager = {
-    // Expose state for testing
-    _state: state,
-    get classes() { return state.classes; },
-    get scheduleWeeks() { return state.scheduleWeeks; },
-    get teacherUnavailability() { return state.teacherUnavailability; },
-    get savedSchedules() { return state.savedSchedules; },
-    
-    loadClassesFromCSV: jest.fn(async () => {
-      state.classes = [
-        {
-          name: 'Math 101',
-          grade: '5',
-          conflicts: {
-            Monday: [1, 2],
-            Tuesday: [3, 4]
-          }
-        },
-        {
-          name: 'Science 102',
-          grade: '6',
-          conflicts: {
-            Wednesday: [2, 3],
-            Friday: [1]
-          }
+// --- Mock DataStore ---
+// Creates a mock DataStore with jest functions for getters/setters
+// Allows tests to inspect or control the underlying state if needed.
+export const createMockDataStore = () => {
+    const _state = {
+        classes: [],
+        scheduleWeeks: { 0: {} }, 
+        teacherUnavailability: { 0: {} },
+        savedSchedules: [],
+        savedClassCollections: [],
+        currentWeekOffset: 0,
+        scheduleStartDate: new Date('2025-03-24T00:00:00Z'), 
+        config: { 
+            maxConsecutiveClasses: 2, maxClassesPerDay: 4, 
+            minClassesPerWeek: 12, maxClassesPerWeek: 16 
         }
-      ];
-      // Return immediately in tests
-      return Promise.resolve();
-    }),
+    };
+    // Simple getters
+    const store = {
+        get classes() { return _state.classes; },
+        get scheduleWeeks() { return _state.scheduleWeeks; },
+        get teacherUnavailability() { return _state.teacherUnavailability; },
+        get scheduleStartDate() { return _state.scheduleStartDate; },
+        get currentWeekOffset() { return _state.currentWeekOffset; },
+        get config() { return _state.config; },
+        get savedSchedules() { return _state.savedSchedules; },
+        get savedClassCollections() { return _state.savedClassCollections; },
+    };
+    // Mock setters to allow inspection
+    store.setClasses = jest.fn((val) => { _state.classes = val; });
+    store.setScheduleWeeks = jest.fn((val) => { _state.scheduleWeeks = val; });
+    store.setTeacherUnavailability = jest.fn((val) => { _state.teacherUnavailability = val; });
+    store.setScheduleStartDate = jest.fn((val) => { _state.scheduleStartDate = val; });
+    store.setCurrentWeekOffset = jest.fn((val) => { _state.currentWeekOffset = val; });
+    store.setConfig = jest.fn((val) => { _state.config = { ..._state.config, ...val }; }); // Merge config updates
+    store.setSavedSchedules = jest.fn((val) => { _state.savedSchedules = val; });
+    store.setSavedClassCollections = jest.fn((val) => { _state.savedClassCollections = val; });
 
-    scheduleClass: jest.fn((className, date, period) => {
-      if (!state.scheduleWeeks[0][date]) {
-        state.scheduleWeeks[0][date] = {};
-      }
-      if (state.scheduleWeeks[0][date][period]) {
-        throw new Error('Time slot already occupied');
-      }
-      state.scheduleWeeks[0][date][period] = className;
-    }),
+    // Add setters to the store object itself for direct assignment in tests
+    Object.defineProperty(store, 'classes', { set: store.setClasses });
+    Object.defineProperty(store, 'scheduleWeeks', { set: store.setScheduleWeeks });
+    Object.defineProperty(store, 'teacherUnavailability', { set: store.setTeacherUnavailability });
+    Object.defineProperty(store, 'scheduleStartDate', { set: store.setScheduleStartDate });
+    Object.defineProperty(store, 'currentWeekOffset', { set: store.setCurrentWeekOffset });
+    Object.defineProperty(store, 'config', { set: store.setConfig });
+    Object.defineProperty(store, 'savedSchedules', { set: store.setSavedSchedules });
+    Object.defineProperty(store, 'savedClassCollections', { set: store.setSavedClassCollections });
+    
+    // Expose internal state for direct manipulation in tests if absolutely necessary
+    store._state = _state; 
 
-    hasConflict: jest.fn((className, dateStr, period) => {
-      const classData = state.classes.find(c => c.name === className);
-      if (!classData?.conflicts) return false;
-      
-      // Parse date with UTC to match real implementation
-      const [year, month, day] = dateStr.split('-').map(num => parseInt(num, 10));
-      const date = new Date(year, month - 1, day);
-      const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-      const dayName = days[date.getDay()];
-      
-      // Match the actual implementation's behavior
-      return classData.conflicts[dayName]?.includes(Number(period)) || false;
-    }),
-
-    isTeacherUnavailable: jest.fn((dateStr, period) => {
-      return Boolean(state.teacherUnavailability[dateStr]?.[period]);
-    }),
-
-    markTeacherUnavailable: jest.fn((dateStr, period) => {
-      if (!state.teacherUnavailability[dateStr]) {
-        state.teacherUnavailability[dateStr] = {};
-      }
-      state.teacherUnavailability[dateStr][period] = true;
-    }),
-
-    clearTeacherUnavailable: jest.fn((dateStr, period) => {
-      if (state.teacherUnavailability[dateStr]) {
-        delete state.teacherUnavailability[dateStr][period];
-      }
-    }),
-
-    getFormattedDate: jest.fn(date => {
-      return date.toISOString().split('T')[0];
-    }),
-
-    getCurrentWeekDates: jest.fn(() => {
-      const dates = [];
-      const now = new Date(global.testData.mockDate);
-      for (let i = 0; i < 7; i++) {
-        const date = new Date(now);
-        date.setDate(now.getDate() - now.getDay() + i);
-        dates.push(date);
-      }
-      return dates;
-    }),
-
-    getConfig: jest.fn(() => ({
-      maxConsecutiveClasses: 3,
-      maxClassesPerDay: 6,
-      minClassesPerWeek: 15, // Match the test's expectation
-      maxClassesPerWeek: 25
-    })),
-
-    setConfig: jest.fn(),
-    getScheduledClassCount: jest.fn(() => 5),
-    getTotalClassCount: jest.fn(() => 20),
-
-    saveToLocalStorage: jest.fn(() => {
-      localStorage.setItem('cooking-class-schedule', JSON.stringify(state.scheduleWeeks));
-    }),
-
-    loadFromLocalStorage: jest.fn(() => {
-      try {
-        const data = localStorage.getItem('cooking-class-schedule');
-        if (!data) return;
-        state.scheduleWeeks = JSON.parse(data);
-      } catch (e) {
-        throw new Error('Invalid storage data');
-      }
-    }),
-
-    saveSchedule: jest.fn((name, notes, scheduleData = null) => {
-      if (state.savedSchedules.find(s => s.name === name)) {
-        throw new Error('Schedule name already exists');
-      }
-      
-      state.savedSchedules.push({
-        name,
-        notes,
-        scheduleData: scheduleData || state.scheduleWeeks[0],
-        timestamp: Date.now()
-      });
-    }),
-
-    loadSavedSchedule: jest.fn((name) => {
-      const saved = state.savedSchedules.find(s => s.name === name);
-      if (saved) {
-        state.scheduleWeeks[0] = saved.scheduleData;
-      }
-    })
-  };
-
-  return manager;
+    return store;
 };
 
+// --- Mock PersistenceService ---
+// Provides jest mocks for save/load/remove/clearAll
+export const createMockPersistenceService = () => ({
+    save: jest.fn().mockReturnValue(true), // Assume save succeeds by default
+    load: jest.fn().mockReturnValue(null), // Assume load finds nothing by default
+    remove: jest.fn(),
+    clearAll: jest.fn(),
+});
+
+// --- Mock ClassRepository ---
+// Mocks the methods now present in ClassRepository
+export const createMockClassRepository = (mockDataStore, mockPersistenceService) => ({
+    dataStore: mockDataStore, // Keep reference if needed
+    persistenceService: mockPersistenceService, // Keep reference if needed
+    getClasses: jest.fn(() => mockDataStore.classes),
+    addClass: jest.fn((classInfo) => {
+        // Basic mock logic: add if not exists, return save status
+        const exists = mockDataStore.classes.find(c => c.name === classInfo.name);
+        if (exists) return false;
+        mockDataStore.classes = [...mockDataStore.classes, classInfo]; // Use setter
+        return mockPersistenceService.save('cooking-classes', mockDataStore.classes);
+    }),
+    updateClass: jest.fn((oldName, updatedInfo) => {
+        // Basic mock logic: update if exists, return save status
+        const index = mockDataStore.classes.findIndex(c => c.name === oldName);
+        if (index === -1) return false;
+        const newClasses = [...mockDataStore.classes];
+        newClasses[index] = updatedInfo;
+        mockDataStore.classes = newClasses; // Use setter
+        // Assume schedule update happens if name changes (simplified)
+        let scheduleSaveStatus = true;
+        if (oldName !== updatedInfo.name) {
+             scheduleSaveStatus = mockPersistenceService.save('cooking-class-schedule', mockDataStore.scheduleWeeks);
+        }
+        const classSaveStatus = mockPersistenceService.save('cooking-classes', mockDataStore.classes);
+        return scheduleSaveStatus && classSaveStatus;
+    }),
+    deleteClass: jest.fn((className) => {
+        // Basic mock logic: remove if exists and not scheduled, return save status
+        const isScheduled = Object.values(mockDataStore.scheduleWeeks).some(w => 
+            w && Object.values(w).some(d => d && Object.values(d).includes(className))
+        );
+        if (isScheduled) return false;
+        const initialLength = mockDataStore.classes.length;
+        const newClasses = mockDataStore.classes.filter(c => c.name !== className);
+        if (newClasses.length === initialLength) return false;
+        mockDataStore.classes = newClasses; // Use setter
+        return mockPersistenceService.save('cooking-classes', mockDataStore.classes);
+    }),
+    isClassScheduled: jest.fn((className) => {
+        // Basic mock logic based on mockDataStore state
+         return Object.values(mockDataStore.scheduleWeeks).some(w => 
+            w && Object.values(w).some(d => d && Object.values(d).includes(className))
+        );
+    }),
+    loadClassesFromCSV: jest.fn().mockResolvedValue([]), // Mock CSV load if needed
+    loadClassesFromLocalStorage: jest.fn(() => { // Mock direct load
+        const data = mockPersistenceService.load('cooking-classes');
+        if (data) mockDataStore.classes = data;
+        return !!data;
+    }),
+    // Add missing mock method needed by tests
+    getClassByName: jest.fn(),
+});
+
+// --- Mock ScheduleRepository ---
+export const createMockScheduleRepository = (mockDataStore, mockPersistenceService) => ({
+    dataStore: mockDataStore,
+    persistenceService: mockPersistenceService,
+    scheduleClass: jest.fn(),
+    unscheduleClass: jest.fn(),
+    hasConflict: jest.fn().mockReturnValue(false), // Default to no conflict
+    changeWeek: jest.fn().mockReturnValue({}), // Default to empty schedule object
+    resetCurrentWeekSchedule: jest.fn(),
+    resetAllSchedules: jest.fn(),
+    getAllScheduledClassNames: jest.fn().mockReturnValue(new Set()), // Default to empty set
+    getCurrentWeekScheduledClasses: jest.fn().mockReturnValue([]), // Default to empty array
+    toggleTeacherUnavailability: jest.fn(),
+    isTeacherUnavailable: jest.fn().mockReturnValue(false), // Default to available
+    loadScheduleState: jest.fn(), // Used when loading a saved schedule
+    getCurrentWeekScheduleData: jest.fn().mockReturnValue({}), // Used when saving schedule
+    getCurrentTeacherUnavailability: jest.fn().mockReturnValue({}), // Used when saving schedule
+    getStartDate: jest.fn().mockReturnValue(new Date()), // Used when saving schedule
+});
+
+// --- Mock ConfigManager ---
+export const createMockConfigManager = (mockDataStore, mockPersistenceService) => ({
+    dataStore: mockDataStore,
+    persistenceService: mockPersistenceService,
+    getConfig: jest.fn(() => mockDataStore.config), // Return config from mock store
+    updateConfig: jest.fn((newConfig) => {
+        mockDataStore.config = newConfig; // Update mock store
+        // Assume save is called internally or handled separately
+    }),
+    loadConfig: jest.fn(() => {
+        // Mock loading from persistence into store if needed
+        const data = mockPersistenceService.load('cooking-class-config');
+        if (data) mockDataStore.config = data;
+    }),
+    saveConfig: jest.fn(() => {
+        // Mock saving from store to persistence
+        mockPersistenceService.save('cooking-class-config', mockDataStore.config);
+    }),
+});
+
+// --- Mock SavedStateRepository ---
+export const createMockSavedStateRepository = (mockDataStore, mockPersistenceService) => ({
+    dataStore: mockDataStore,
+    persistenceService: mockPersistenceService,
+    saveSchedule: jest.fn().mockReturnValue(true), // Assume success
+    getSavedScheduleByName: jest.fn().mockReturnValue(undefined), // Default to not found
+    addSavedClassCollection: jest.fn().mockReturnValue(true), // Assume success
+    getSavedClassCollectionById: jest.fn().mockReturnValue(undefined), // Default to not found
+    updateSavedClassCollection: jest.fn().mockReturnValue(false), // Default to not found/fail
+    deleteSavedClassCollection: jest.fn().mockReturnValue(false), // Default to not found/fail
+    loadCollections: jest.fn(() => { // Mock for loading collections
+        const data = mockPersistenceService.load('cooking-saved-class-collections');
+        if (data) mockDataStore.savedClassCollections = data;
+    }),
+    saveCollections: jest.fn(() => { // Mock for saving collections
+        mockPersistenceService.save('cooking-saved-class-collections', mockDataStore.savedClassCollections);
+    }),
+    // Add other methods like loadSchedules, saveSchedules if needed by DataManager facade
+});
+
+
+// --- Mock DataManager Facade ---
+// This now primarily mocks the remaining DataManager methods and holds mock dependencies.
+// It doesn't need its own complex state logic anymore.
+export const createMockDataManager = (
+    mockDataStoreInstance = createMockDataStore(),
+    mockPersistenceServiceInstance = createMockPersistenceService(),
+    mockClassRepositoryInstance = createMockClassRepository(mockDataStoreInstance, mockPersistenceServiceInstance)
+) => {
+    const mockDataManager = {
+        // Inject mock dependencies
+        dataStore: mockDataStoreInstance,
+        persistenceService: mockPersistenceServiceInstance,
+        classRepository: mockClassRepositoryInstance,
+        scheduler: { // Basic mock scheduler if needed by DataManager methods
+            findInvalidPlacementsWithNewConstraints: jest.fn().mockReturnValue([]),
+        }, 
+
+        // --- Mocked Facade Methods ---
+        // Persistence related (delegated or direct)
+        _loadAllFromPersistence: jest.fn(), // Can be spied on
+        loadConfigFromLocalStorage: jest.fn(() => {
+             const data = mockPersistenceServiceInstance.load('cooking-class-config');
+             if (data) mockDataStoreInstance.config = data;
+        }),
+        loadSavedSchedulesFromLocalStorage: jest.fn(() => {
+             const data = mockPersistenceServiceInstance.load('cooking-saved-schedules');
+             if (data) mockDataStoreInstance.savedSchedules = data;
+        }),
+         loadSavedClassCollectionsFromLocalStorage: jest.fn(() => {
+             const data = mockPersistenceServiceInstance.load('cooking-saved-class-collections');
+             if (data) mockDataStoreInstance.savedClassCollections = data;
+        }),
+        saveConfigToLocalStorage: jest.fn(() => mockPersistenceServiceInstance.save('cooking-class-config', mockDataStoreInstance.config)),
+        saveSavedSchedulesToLocalStorage: jest.fn(() => mockPersistenceServiceInstance.save('cooking-saved-schedules', mockDataStoreInstance.savedSchedules)),
+        saveSavedClassCollectionsToLocalStorage: jest.fn(() => mockPersistenceServiceInstance.save('cooking-saved-class-collections', mockDataStoreInstance.savedClassCollections)),
+
+        // Date/Week Management (mostly interact with DataStore)
+        setStartDate: jest.fn((date) => { 
+            // Mock the behavior: sets start date and offset in store
+            mockDataStoreInstance.scheduleStartDate = date; // Setter handles finding Monday
+            mockDataStoreInstance.currentWeekOffset = 0;
+            // Mock doesn't need to call initializeEmptyWeek internally for tests unless testing that side effect
+        }),
+        initializeEmptyWeek: jest.fn((offset) => {
+            // Basic mock: ensure week exists in store, return empty schedule object
+             if (!mockDataStoreInstance.scheduleWeeks[offset]) {
+                 const newWeeks = { ...mockDataStoreInstance.scheduleWeeks, [offset]: {} };
+                 mockDataStoreInstance.scheduleWeeks = newWeeks; // Use setter
+             }
+              if (!mockDataStoreInstance.teacherUnavailability[offset]) {
+                 const newUnav = { ...mockDataStoreInstance.teacherUnavailability, [offset]: {} };
+                 mockDataStoreInstance.teacherUnavailability = newUnav; // Use setter
+             }
+             return mockDataStoreInstance.scheduleWeeks[offset];
+        }),
+        getCurrentWeekSchedule: jest.fn(() => {
+            const offset = mockDataStoreInstance.currentWeekOffset;
+             if (!mockDataStoreInstance.scheduleWeeks[offset]) {
+                 mockDataManager.initializeEmptyWeek(offset); // Call the mock init
+             }
+            return mockDataStoreInstance.scheduleWeeks[offset];
+        }),
+        getCurrentWeekDates: jest.fn(() => []), // Simple mock, use real date-utils if needed
+        changeWeek: jest.fn((direction) => {
+            mockDataStoreInstance.currentWeekOffset += direction; // Use setter
+            return mockDataManager.getCurrentWeekSchedule(); // Call mock getter
+        }),
+
+        // Schedule Access/Modification (interact with DataStore)
+        getSchedule: jest.fn(() => mockDataManager.getCurrentWeekSchedule()),
+        scheduleClass: jest.fn((className, dateStr, period) => {
+            const schedule = mockDataManager.getCurrentWeekSchedule();
+            if (schedule && schedule[dateStr]) {
+                schedule[dateStr][period] = className;
+            }
+        }),
+        unscheduleClass: jest.fn((dateStr, period) => {
+             const schedule = mockDataManager.getCurrentWeekSchedule();
+            if (schedule && schedule[dateStr]) {
+                schedule[dateStr][period] = null;
+            }
+        }),
+        resetSchedule: jest.fn(() => {
+             const offset = mockDataStoreInstance.currentWeekOffset;
+             mockDataManager.initializeEmptyWeek(offset); // Re-init
+             // No save mock needed unless testing persistence side effect
+        }),
+        resetAllSchedules: jest.fn(() => {
+            mockDataStoreInstance.scheduleWeeks = { 0: {} }; // Reset via setter
+            mockDataStoreInstance.teacherUnavailability = { 0: {} }; // Reset via setter
+            mockDataStoreInstance.currentWeekOffset = 0; // Reset via setter
+            // Don't reset start date in mock unless specifically needed for a test
+            mockDataManager.initializeEmptyWeek(0);
+        }),
+        getUnscheduledClasses: jest.fn(() => {
+            // Mock logic using mock repo and mock store
+            const scheduled = new Set();
+             Object.values(mockDataStoreInstance.scheduleWeeks).forEach(w => 
+                 w && Object.values(w).forEach(d => 
+                     d && Object.values(d).forEach(c => { if(c) scheduled.add(c); })
+                 )
+             );
+             return mockClassRepositoryInstance.getClasses().filter(cls => !scheduled.has(cls.name));
+        }),
+        getCurrentWeekScheduledClasses: jest.fn(() => {
+             // Mock logic using mock store
+             const scheduled = new Set();
+             const schedule = mockDataManager.getCurrentWeekSchedule();
+             if (schedule) {
+                  Object.values(schedule).forEach(d => 
+                     d && Object.values(d).forEach(c => { if(c) scheduled.add(c); })
+                 );
+             }
+             return Array.from(scheduled);
+        }),
+
+        // Conflict/Availability (interact with repo/store)
+        hasConflict: jest.fn((className, dateStr, period) => {
+            // Simplified mock logic
+            const classInfo = mockClassRepositoryInstance.getClasses().find(c => c.name === className);
+            if (!classInfo) return false;
+            // Basic check - doesn't need real date logic unless testing date edge cases
+            if (mockDataManager.isTeacherUnavailable(dateStr, period)) return true; 
+            return false; 
+        }),
+        isTeacherUnavailable: jest.fn((dateStr, period) => {
+            // Basic mock logic using store state
+            const offset = mockDataStoreInstance.currentWeekOffset;
+            return !!mockDataStoreInstance.teacherUnavailability[offset]?.[dateStr]?.[period];
+        }),
+        toggleTeacherUnavailability: jest.fn((dateStr, period) => {
+            // Basic mock logic using store state
+            const offset = mockDataStoreInstance.currentWeekOffset;
+            const currentUnav = { ...mockDataStoreInstance.teacherUnavailability };
+            if (!currentUnav[offset]) currentUnav[offset] = {};
+            if (!currentUnav[offset][dateStr]) currentUnav[offset][dateStr] = {};
+            const currentVal = !!currentUnav[offset][dateStr][period];
+            currentUnav[offset][dateStr][period] = !currentVal;
+            mockDataStoreInstance.teacherUnavailability = currentUnav; // Use setter
+            return !currentVal;
+        }),
+
+        // Config Management (interact with store/persistence)
+        getConfig: jest.fn(() => mockDataStoreInstance.config),
+        updateConfig: jest.fn((newConfig) => {
+            mockDataStoreInstance.config = newConfig; // Use setter (merges)
+            mockDataManager.saveConfigToLocalStorage(); // Call mock save
+            return mockDataStoreInstance.config;
+        }),
+        validateExistingScheduleAgainstConstraints: jest.fn(), // Can be spied on
+
+        // Saved Schedules (interact with store/persistence)
+        addSavedSchedule: jest.fn((schedule) => {
+             mockDataStoreInstance.savedSchedules = [...mockDataStoreInstance.savedSchedules, schedule];
+             return mockDataManager.saveSavedSchedulesToLocalStorage();
+        }),
+         updateSavedSchedule: jest.fn((id, updates) => {
+             const index = mockDataStoreInstance.savedSchedules.findIndex(s => s.id === id);
+             if (index === -1) return false;
+             const newSchedules = [...mockDataStoreInstance.savedSchedules];
+             newSchedules[index] = { ...newSchedules[index], ...updates, lastModified: 'mock-date' };
+             mockDataStoreInstance.savedSchedules = newSchedules;
+             return mockDataManager.saveSavedSchedulesToLocalStorage();
+         }),
+         deleteSavedSchedule: jest.fn((id) => {
+              const initialLength = mockDataStoreInstance.savedSchedules.length;
+              const newSchedules = mockDataStoreInstance.savedSchedules.filter(s => s.id !== id);
+              if (newSchedules.length === initialLength) return false;
+              mockDataStoreInstance.savedSchedules = newSchedules;
+              return mockDataManager.saveSavedSchedulesToLocalStorage();
+         }),
+         getSavedScheduleById: jest.fn((id) => mockDataStoreInstance.savedSchedules.find(s => s.id === id)),
+
+        // Saved Class Collections (interact with store/persistence)
+         addSavedClassCollection: jest.fn((collection) => {
+             mockDataStoreInstance.savedClassCollections = [...mockDataStoreInstance.savedClassCollections, collection];
+             return mockDataManager.saveSavedClassCollectionsToLocalStorage();
+         }),
+         updateSavedClassCollection: jest.fn((id, updates) => {
+             const index = mockDataStoreInstance.savedClassCollections.findIndex(c => c.id === id);
+             if (index === -1) return false;
+             const newCollections = [...mockDataStoreInstance.savedClassCollections];
+             newCollections[index] = { ...newCollections[index], ...updates, lastModified: 'mock-date' };
+             mockDataStoreInstance.savedClassCollections = newCollections;
+             return mockDataManager.saveSavedClassCollectionsToLocalStorage();
+         }),
+         deleteSavedClassCollection: jest.fn((id) => {
+             const initialLength = mockDataStoreInstance.savedClassCollections.length;
+             const newCollections = mockDataStoreInstance.savedClassCollections.filter(c => c.id !== id);
+             if (newCollections.length === initialLength) return false;
+             mockDataStoreInstance.savedClassCollections = newCollections;
+             return mockDataManager.saveSavedClassCollectionsToLocalStorage();
+         }),
+         getSavedClassCollectionById: jest.fn((id) => mockDataStoreInstance.savedClassCollections.find(c => c.id === id)),
+
+        // Error Handling
+        showErrorMessage: jest.fn(), // Simple mock
+    };
+
+    return mockDataManager;
+};
+
+
+// --- Mock Scheduler ---
+// Simplified mock for basic interactions needed by DataManager tests
 export const createMockScheduler = (dataManager) => {
   return {
-    dataManager,
-    
-    isValidPlacement: jest.fn((className, dateStr, period) => {
-      if (dataManager.scheduleWeeks[0]?.[dateStr]?.[period]) {
-        return {
-          valid: false,
-          reason: 'Time slot is already occupied'
-        };
-      }
-
-      if (dataManager.hasConflict(className, dateStr, period)) {
-        return {
-          valid: false,
-          reason: 'Class has a conflict during this period'
-        };
-      }
-
-      if (dataManager.isTeacherUnavailable(dateStr, period)) {
-        return {
-          valid: false,
-          reason: 'Teacher is unavailable during this period'
-        };
-      }
-
-      return { valid: true, reason: null };
+    dataManager, // Provide reference back if needed
+    isValidPlacement: jest.fn().mockReturnValue({ valid: true, reason: null }), // Assume valid by default
+    checkConstraints: jest.fn().mockReturnValue({ valid: true, violations: [] }), // Assume valid by default
+    validateConstraintCombination: jest.fn().mockReturnValue({ valid: true, reason: null }),
+    simulateConstraintChanges: jest.fn().mockResolvedValue({ // Mock async function
+        valid: true, 
+        invalidPlacements: [], 
+        impactedClasses: [], 
+        suggestedChanges: [] 
     }),
-
-    checkConstraints: jest.fn((schedule) => {
-      const config = dataManager.getConfig();
-
-      // Special case for the "should generate valid schedule suggestions" test
-      // This specific expected schedule should always be considered valid
-      const isGeneratedSchedulePattern = schedule && 
-                                        schedule['2025-03-24'] && 
-                                        schedule['2025-03-24'][1] === 'Math 101' && 
-                                        schedule['2025-03-24'][3] === 'Science 102' &&
-                                        schedule['2025-03-25'] && 
-                                        schedule['2025-03-25'][2] === 'History 101';
-      
-      if (isGeneratedSchedulePattern) {
-        return { valid: true, violations: [] };
-      }
-
-      // For the "check daily class limits" test, we need to prioritize checking daily limits
-      // Look for the specific test data pattern used in that test
-      const isDailyLimitTestPattern = Object.keys(schedule).length === 1 && 
-                                      schedule['2025-03-22'] && 
-                                      Object.keys(schedule['2025-03-22']).length === 7;
-
-      if (isDailyLimitTestPattern) {
-        // Then check daily limits first for this specific test
-        for (const [date, periods] of Object.entries(schedule)) {
-          const dailyCount = Object.values(periods).filter(Boolean).length;
-          if (dailyCount > config.maxClassesPerDay) {
-            return {
-              valid: false,
-              violations: [{
-                type: 'daily',
-                date,
-                details: `Too many classes scheduled for this day (max: ${config.maxClassesPerDay})`
-              }]
-            };
-          }
-        }
-      } else {
-        // Regular order: Check consecutive classes first
-        for (const [date, periods] of Object.entries(schedule)) {
-          let consecutive = 0;
-          for (let i = 1; i <= 8; i++) {
-            if (periods[i]) consecutive++;
-            else consecutive = 0;
-            
-            if (consecutive > config.maxConsecutiveClasses) {
-              return {
-                valid: false,
-                violations: [{
-                  type: 'consecutive',
-                  date,
-                  details: `Too many consecutive classes (max: ${config.maxConsecutiveClasses})`
-                }]
-              };
-            }
-          }
-        }
-
-        // Then check daily limits
-        for (const [date, periods] of Object.entries(schedule)) {
-          const dailyCount = Object.values(periods).filter(Boolean).length;
-          if (dailyCount > config.maxClassesPerDay) {
-            return {
-              valid: false,
-              violations: [{
-                type: 'daily',
-                date,
-                details: `Too many classes scheduled for this day (max: ${config.maxClassesPerDay})`
-              }]
-            };
-          }
-        }
-      }
-
-      // For the weekly limit test, look for the specific pattern used in that test
-      const isWeeklyLimitTestPattern = Object.keys(schedule).length === 5 &&
-                                      schedule['2025-03-24'] && schedule['2025-03-25'] && 
-                                      schedule['2025-03-26'] && schedule['2025-03-27'] && 
-                                      schedule['2025-03-28'];
-
-      // Finally check weekly limits
-      const totalClasses = Object.values(schedule)
-        .reduce((sum, day) => sum + Object.values(day).filter(Boolean).length, 0);
-
-      if (isWeeklyLimitTestPattern && totalClasses >= 25) {
-        return {
-          valid: false,
-          violations: [{
-            type: 'weekly',
-            details: `Too many classes scheduled for this week (max: ${config.maxClassesPerWeek})`
-          }]
-        };
-      }
-
-      if (totalClasses < config.minClassesPerWeek) {
-        return {
-          valid: false,
-          violations: [{
-            type: 'weekly',
-            details: `Not enough classes scheduled for this week (min: ${config.minClassesPerWeek})`
-          }]
-        };
-      }
-
-      return { valid: true, violations: [] };
+    suggestNextClass: jest.fn().mockReturnValue(null), // Default to no suggestion
+    generateScheduleSuggestions: jest.fn().mockResolvedValue({ // Mock async function
+        valid: true, 
+        schedule: {}, 
+        unscheduledClasses: [] 
     }),
-
-    validateConstraintCombination: jest.fn(constraints => {
-      if (constraints.maxClassesPerDay < constraints.maxConsecutiveClasses) {
-        return {
-          valid: false,
-          reason: 'Maximum classes per day cannot be less than maximum consecutive classes'
-        };
-      }
-      return { valid: true, reason: null };
-    }),
-
-    simulateConstraintChanges: jest.fn(async (schedule, currentConstraints, newConstraints) => {
-      const invalidPlacements = [];
-      
-      Object.entries(schedule).forEach(([date, periods]) => {
-        let consecutive = 0;
-        for (let i = 1; i <= 8; i++) {
-          if (periods[i]) consecutive++;
-          else consecutive = 0;
-          if (consecutive > newConstraints.maxConsecutiveClasses) {
-            invalidPlacements.push({
-              className: periods[i],
-              date,
-              period: i,
-              reason: 'Would violate consecutive class limit'
-            });
-          }
-        }
-      });
-
-      return {
-        valid: invalidPlacements.length === 0,
-        invalidPlacements,
-        impactedClasses: [...new Set(invalidPlacements.map(p => p.className))],
-        suggestedChanges: invalidPlacements.map(p => ({
-          className: p.className,
-          from: { date: p.date, period: p.period },
-          to: { date: p.date, period: 6 }
-        }))
-      };
-    }),
-
-    suggestNextClass: jest.fn(() => ({
-      className: 'Math 101',
-      date: '2025-03-22',
-      period: 3
-    })),
-
-    generateScheduleSuggestions: jest.fn(() => {
-      // Return exact schedule format expected by test
-      const schedule = {
-        '2025-03-24': { 1: 'Math 101', 3: 'Science 102' },
-        '2025-03-25': { 2: 'History 101' }
-      };
-
-      return {
-        valid: true,
-        schedule,
-        unscheduledClasses: []
-      };
-    })
+     findInvalidPlacementsWithNewConstraints: jest.fn().mockReturnValue([]), // Added for validation call
   };
 };
 
-// Event simulation helpers
+// --- Other Test Helpers ---
+
+// Event simulation helpers (Keep as they are useful for UI tests)
 export const simulateDragStart = (element) => {
-  const event = createTestEvent('dragstart');
-  event.dataTransfer.setData('text/plain', element.dataset.className);
+  // Basic simulation, might need jsdom or similar for full DataTransfer mock
+  const event = new Event('dragstart', { bubbles: true, cancelable: true });
+  event.dataTransfer = { setData: jest.fn(), getData: jest.fn(), effectAllowed: '', dropEffect: '' }; // Basic mock
+  if(element.dataset.className) {
+      event.dataTransfer.setData('text/plain', element.dataset.className);
+  }
   element.dispatchEvent(event);
   element.classList.add('dragging');
   return event;
 };
 
 export const simulateDrop = (element, data = {}) => {
-  const event = createTestEvent('drop');
-  Object.entries(data).forEach(([format, value]) => {
-    event.dataTransfer.setData(format, value);
-  });
+  const event = new Event('drop', { bubbles: true, cancelable: true });
+   event.dataTransfer = { 
+       setData: jest.fn(), 
+       getData: jest.fn((format) => data[format]), // Mock getData based on input
+       effectAllowed: '', 
+       dropEffect: '' 
+   }; 
   element.dispatchEvent(event);
   return event;
 };
 
 // DOM Events helper
 export const createEvent = (type, options = {}) => {
-  return createTestEvent(type, options);
+  return new Event(type, { bubbles: true, cancelable: true, ...options });
 };
 
-// Async test helper
+// Async test helper (Keep as is)
 export const waitFor = (callback, { timeout = 1000, interval = 50 } = {}) => {
-  jest.useFakeTimers();
+  // jest.useFakeTimers(); // Be cautious using fake timers globally
   return new Promise((resolve, reject) => {
     const startTime = Date.now();
-
     const check = () => {
       try {
-        resolve(callback());
+        const result = callback();
+        // If callback returns a truthy value or doesn't throw, resolve
+        if (result) { 
+             resolve(result);
+        } else if (Date.now() - startTime > timeout) {
+             reject(new Error('Timed out waiting for condition, but callback returned falsy value.'));
+        } else {
+             setTimeout(check, interval); // Use real setTimeout
+        }
       } catch (err) {
         if (Date.now() - startTime > timeout) {
-          reject(new Error('Timed out waiting for condition'));
+          reject(new Error(`Timed out waiting for condition: ${err.message}`));
         } else {
-          jest.advanceTimersByTime(interval);
-          check();
+          setTimeout(check, interval); // Use real setTimeout
         }
       }
     };
-
     check();
   });
 };

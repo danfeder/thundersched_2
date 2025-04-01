@@ -116,13 +116,14 @@ class SaveLoadController {
              return;
         }
         
-        // Debug log saved schedules
-        console.log('Showing load schedule modal. Saved schedules:', this.dataManager.savedSchedules);
+        // Access saved schedules via dataStore
+        const savedSchedules = this.dataManager.dataStore.savedSchedules;
+        console.log('Showing load schedule modal. Saved schedules:', savedSchedules);
         
         // Clear existing list
         listContainer.innerHTML = '';
         
-        if (!this.dataManager.savedSchedules || this.dataManager.savedSchedules.length === 0) {
+        if (!savedSchedules || savedSchedules.length === 0) {
             console.log('No saved schedules found');
             listContainer.innerHTML = '<div class="empty-message">No saved schedules found.</div>';
         } else {
@@ -134,8 +135,8 @@ class SaveLoadController {
                 this.dataManager.teacherUnavailability
             );
             
-            // Create list items for each saved schedule
-            this.dataManager.savedSchedules.forEach(schedule => {
+            // Create list items for each saved schedule using the variable defined earlier
+            savedSchedules.forEach(schedule => { // Use savedSchedules variable
                 const item = document.createElement('div');
                 item.className = 'saved-schedule-item';
                 
@@ -366,14 +367,36 @@ class SaveLoadController {
 
     proceedWithScheduleLoad(savedSchedule) {
         // Check for class differences between saved and current
-        const classDifferences = this.findClassDifferences(savedSchedule.classData, this.dataManager.classes);
+        const classDifferences = this.findClassDifferences(savedSchedule.classData, this.dataManager.classRepository.getClasses()); // Use repository
         
         if (classDifferences.hasChanges) {
             // Show conflict resolution dialog
             this.showConflictResolutionDialog(savedSchedule, classDifferences);
         } else {
             // No conflicts, load directly using 'full' mode
-            this.applyLoadedSchedule(savedSchedule, 'full');
+            // Call the DataManager method to load the schedule state into the DataStore.
+            const loadSuccess = this.dataManager.loadSavedSchedule(savedSchedule.id);
+
+            if (!loadSuccess) {
+                // DataManager already showed error message
+                return;
+            }
+
+            // TODO: Reset Class Manager UI if open (Needs reference or event)
+            if (document.getElementById('class-manager-modal')?.style.display === 'block') {
+                console.warn("Need to refresh Class Manager UI after schedule load.");
+                // Example: this.classManagerController.refreshUI();
+            }
+
+            // Update UI (Ideally emit events later)
+            // Pass scheduler, but teacherModeActive is likely false after a load
+            this.uiManager.renderScheduleGrid(this.scheduler, false);
+            this.uiManager.renderUnscheduledClasses(this.scheduler); // Pass scheduler
+            this.uiManager.updateProgress();
+            this.uiManager.updateConstraintStatus(this.scheduler);
+            this.uiManager.updateCurrentWeekDisplay();
+            
+            this.uiManager.showMessage('success', `Schedule "${savedSchedule.name}" loaded successfully.`);
         }
     }
 
@@ -586,50 +609,36 @@ class SaveLoadController {
                             this.dataManager.scheduleWeeks[weekOffset][dateStr][period] = null;
                         }
                     });
-                });
-                
-                // Apply scheduled classes that still exist in current class list
-                Object.keys(savedScheduleData).forEach(weekOffset => {
-                    Object.keys(savedScheduleData[weekOffset] || {}).forEach(dateStr => {
-                        Object.keys(savedScheduleData[weekOffset][dateStr] || {}).forEach(period => {
-                            const className = savedScheduleData[weekOffset][dateStr][period];
-                            if (className && typeof className === 'string') {
-                                const classExists = this.dataManager.classes.some(c => c.name === className);
-                                if (classExists) {
-                                    // Ensure the target slot exists before assigning
-                                    if(this.dataManager.scheduleWeeks[weekOffset]?.[dateStr]) {
-                                         this.dataManager.scheduleWeeks[weekOffset][dateStr][period] = className;
-                                    }
-                                }
-                            }
-                        });
-                    });
-                });
-                
-                // Load config and teacher unavailability
-                this.dataManager.config = JSON.parse(JSON.stringify(savedConstraintData));
-                this.dataManager.teacherUnavailability = JSON.parse(JSON.stringify(savedTeacherData));
-                
-                // Save to localStorage
-                localStorage.setItem('cooking-class-schedule', JSON.stringify(this.dataManager.scheduleWeeks));
-                localStorage.setItem('cooking-class-config', JSON.stringify(this.dataManager.config));
-                localStorage.setItem('teacher-unavailability', JSON.stringify(this.dataManager.teacherUnavailability));
-                
-                 // Reset Class Manager UI if open (Needs reference or event)
-                 // TODO: Replace direct DOM check/calls with events or controller interaction
-                 if (document.getElementById('class-manager-modal')?.style.display === 'block') {
-                     console.warn("Need to refresh Class Manager UI after adapting schedule load.");
-                     // Example: this.classManagerController.refreshUI(); 
-                 }
+                }); // End of adapt mode schedule application
+
+                // TODO: Reset Class Manager UI if open (Needs reference or event)
+                if (document.getElementById('class-manager-modal')?.style.display === 'block') {
+                    console.warn("Need to refresh Class Manager UI after adapting schedule load.");
+                    // Example: this.classManagerController.refreshUI();
+                }
+            } else if (loadMode === 'full') {
+                // Full load replaces everything. Call DataManager to handle state update.
+                console.log(`Performing full load for schedule: ${savedSchedule.name}`);
+                const loadSuccess = this.dataManager.loadSavedSchedule(savedSchedule.id);
+                if (!loadSuccess) {
+                    // DataManager already showed error message
+                    return;
+                }
+
+                // TODO: Reset Class Manager UI if open (Needs reference or event)
+                if (document.getElementById('class-manager-modal')?.style.display === 'block') {
+                    console.warn("Need to refresh Class Manager UI after schedule load.");
+                    // Example: this.classManagerController.refreshUI();
+                }
             }
             
-            // Reset to the first week of the schedule
-            this.dataManager.currentWeekOffset = 0;
+            // Resetting offset is now handled within DataManager.loadSavedSchedule
+            // this.dataManager.currentWeekOffset = 0;
             
             // Update UI (Ideally emit events later)
             // Pass scheduler, but teacherModeActive is likely false after a load
             this.uiManager.renderScheduleGrid(this.scheduler, false);
-            this.uiManager.renderUnscheduledClasses(); // No args needed
+            this.uiManager.renderUnscheduledClasses(this.scheduler); // Pass scheduler
             this.uiManager.updateProgress();
             this.uiManager.updateConstraintStatus(this.scheduler);
             this.uiManager.updateCurrentWeekDisplay();

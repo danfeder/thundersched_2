@@ -37,8 +37,8 @@ function importCSVClasses() {
                                 return;
                             }
                             
-                            // Ask for confirmation if there are existing classes
-                            const existingClasses = window.dataManager.getClasses();
+                            // Ask for confirmation if there are existing classes (using temp global access)
+                            const existingClasses = window.appInitializer?.dataManager?.classRepository?.getClasses() || [];
                             
                             let shouldProceed = true;
                             if (existingClasses.length > 0) {
@@ -46,11 +46,22 @@ function importCSVClasses() {
                             }
                             
                             if (shouldProceed) {
-                                // Replace existing classes with imported ones
-                                window.dataManager.classes = classData;
+                                // Replace existing classes via DataStore (temporary global access)
+                                // TODO: Replace with ClassRepository method
+                                if (window.appInitializer?.dataManager?.dataStore) {
+                                    window.appInitializer.dataManager.dataStore.classes = classData;
+                                } else {
+                                     console.error("Cannot set classes: DataStore not found.");
+                                     throw new Error("Failed to update class data.");
+                                }
                                 
-                                // Save to localStorage
-                                localStorage.setItem('cooking-classes', JSON.stringify(classData));
+                                // Save via PersistenceService (temporary global access)
+                                // TODO: Replace with ClassRepository method
+                                if (window.appInitializer?.dataManager?.classRepository?.saveClassesToLocalStorage) {
+                                    window.appInitializer.dataManager.classRepository.saveClassesToLocalStorage();
+                                } else {
+                                    console.error("Cannot save classes: ClassRepository or save method not found.");
+                                }
                                 
                                 // Refresh the class list
                                 refreshClassList();
@@ -69,11 +80,11 @@ function importCSVClasses() {
                                 }
                             }
                         } else {
-                            uiManager.showMessage('Data manager not available. Cannot import classes.');
+                            uiManager.showMessage('error', 'Data manager not available. Cannot import classes.'); // Add type
                         }
                     } catch (error) {
                         console.error('Error processing CSV file:', error);
-                        uiManager.showMessage('Error processing CSV file: ' + error.message);
+                        uiManager.showMessage('error', 'Error processing CSV file: ' + error.message); // Add type
                     }
                 };
                 
@@ -96,8 +107,10 @@ function importCSVClasses() {
 // Function to refresh the class list without reopening the modal
 function refreshClassList(selectClassName = null) {
     try {
-        if (window.dataManager) {
-            const classes = window.dataManager.getClasses();
+        // Temporary Fix: Access dataManager via the global appInitializer instance
+        // TODO: Refactor class-manager.js to accept dependencies properly
+        if (window.appInitializer && window.appInitializer.dataManager && window.appInitializer.dataManager.classRepository) {
+            const classes = window.appInitializer.dataManager.classRepository.getClasses();
             console.log('Refreshing class list, classes:', classes.length);
             
             // Clear and populate the class list
@@ -154,59 +167,16 @@ window.openClassManager = function() {
     console.log('Global open class manager function called');
     const modal = document.getElementById('class-manager-modal');
     if (modal) {
-        modal.style.display = 'block';
+        // Refresh the list content *before* showing the modal
+        refreshClassList(); // Call the dedicated refresh function
         
-        // Try to load classes
-        try {
-            if (window.dataManager) {
-                const classes = window.dataManager.getClasses();
-                console.log('Classes loaded:', classes.length);
-                
-                // Clear and populate the class list
-                const classList = document.getElementById('class-list');
-                if (classList) {
-                    classList.innerHTML = '';
-                    
-                    // Check if there are any classes
-                    if (classes.length === 0) {
-                        const placeholder = document.createElement('div');
-                        placeholder.className = 'class-manager-placeholder';
-                        placeholder.textContent = 'No classes defined yet';
-                        classList.appendChild(placeholder);
-                    } else {
-                        classes.forEach(classInfo => {
-                            const classElement = document.createElement('div');
-                            classElement.className = 'class-item';
-                            classElement.textContent = classInfo.name;
-                            
-                            // Add click handler
-                            classElement.addEventListener('click', function() {
-                                // Deselect any currently selected class
-                                const selected = classList.querySelector('.selected');
-                                if (selected) {
-                                    selected.classList.remove('selected');
-                                }
-                                
-                                // Select this class
-                                classElement.classList.add('selected');
-                                
-                                // Show the class details in the editor
-                                showClassDetails(classInfo);
-                            });
-                            
-                            classList.appendChild(classElement);
-                        });
-                    }
-                }
-                
-                // Initialize the conflict grid
-                createConflictGrid();
-            }
-        } catch (error) {
-            console.error('Error loading classes:', error);
-        }
+        // Initialize the conflict grid (assuming this should happen when modal opens)
+        createConflictGrid();
+
+        // Show the modal
+        modal.style.display = 'block';
     } else {
-        console.error('Class manager modal not found globally');
+        console.error("Class manager modal element not found!");
     }
 };
 
@@ -566,13 +536,19 @@ let isSavingClassCollection = false;
 
 // Function to show the save class collection modal
 function showSaveClassCollectionModal() {
-    // Check if there are any classes to save
-    if (!window.dataManager || window.dataManager.getClasses().length === 0) {
-        if (window.showMessage) {
-            window.showMessage('error', 'No classes to save. Please add at least one class first.');
-        } else {
-            uiManager.showMessage('No classes to save. Please add at least one class first.');
-        }
+    // --- DEBUG LOGS ---
+    console.log("[showSaveClassCollectionModal] Called.");
+    console.log("[showSaveClassCollectionModal] window.appInitializer:", window.appInitializer);
+    console.log("[showSaveClassCollectionModal] window.appInitializer.dataManager:", window.appInitializer?.dataManager);
+    console.log("[showSaveClassCollectionModal] window.appInitializer.dataManager.dataStore:", window.appInitializer?.dataManager?.dataStore);
+    console.log("[showSaveClassCollectionModal] window.appInitializer.dataManager.dataStore.savedClassCollections:", window.appInitializer?.dataManager?.dataStore?.savedClassCollections);
+    // --- END DEBUG LOGS ---
+
+    // Check if there are any classes to save (using temporary global access)
+    const currentClasses = window.appInitializer?.dataManager?.classRepository?.getClasses() || [];
+    if (currentClasses.length === 0) {
+        // Use uiManager instance directly with type 'error'
+        uiManager.showMessage('error', 'No classes to save. Please add at least one class first.');
         return;
     }
     
@@ -581,9 +557,10 @@ function showSaveClassCollectionModal() {
     const form = document.getElementById('save-class-collection-form');
     form.reset();
     
-    // Suggest a default name
-    document.getElementById('class-collection-name').value = 
-        "Class Collection " + (window.dataManager.savedClassCollections.length + 1);
+    // Suggest a default name (using temporary global access)
+    const collectionCount = window.appInitializer?.dataManager?.dataStore?.savedClassCollections?.length || 0;
+    document.getElementById('class-collection-name').value =
+        "Class Collection " + (collectionCount + 1);
     
     // Show modal
     modal.style.display = 'block';
@@ -609,8 +586,9 @@ function handleSaveClassCollectionSubmit() {
         return;
     }
     
-    // Check for duplicate names
-    const isDuplicateName = window.dataManager.savedClassCollections.some(collection => 
+    // Check for duplicate names (using temporary global access)
+    const savedCollections = window.appInitializer?.dataManager?.dataStore?.savedClassCollections || [];
+    const isDuplicateName = savedCollections.some(collection =>
         collection.name.toLowerCase() === name.toLowerCase()
     );
     
@@ -634,11 +612,12 @@ function handleSaveClassCollectionSubmit() {
         description,
         createdAt: timestamp,
         lastModified: timestamp,
-        classData: JSON.parse(JSON.stringify(window.dataManager.classes))
+        // Use temporary global access for current classes
+        classData: JSON.parse(JSON.stringify(window.appInitializer?.dataManager?.classRepository?.getClasses() || []))
     };
     
-    // Add to saved class collections
-    if (window.dataManager.addSavedClassCollection(savedCollection)) {
+    // Add to saved class collections (using temporary global access)
+    if (window.appInitializer?.dataManager?.addSavedClassCollection(savedCollection)) {
         // Hide modal
         document.getElementById('save-class-collection-modal').style.display = 'none';
         
@@ -646,7 +625,7 @@ function handleSaveClassCollectionSubmit() {
         if (window.showMessage) {
             window.showMessage('success', `Class collection "${name}" saved successfully.`);
         } else {
-            uiManager.showMessage(`Class collection "${name}" saved successfully.`, 'success');
+            uiManager.showMessage('success', `Class collection "${name}" saved successfully.`); // Correct argument order
         }
     }
     
@@ -659,18 +638,19 @@ function showLoadClassCollectionModal() {
     const modal = document.getElementById('load-class-collection-modal');
     const listContainer = document.getElementById('saved-class-collections-list');
     
-    // Debug log saved class collections
-    console.log('Showing load class collection modal. Saved collections:', window.dataManager.savedClassCollections);
+    // Access saved collections via global initializer (temporary fix)
+    const savedCollections = window.appInitializer?.dataManager?.dataStore?.savedClassCollections || [];
+    console.log('Showing load class collection modal. Saved collections:', savedCollections);
     
     // Clear existing list
     listContainer.innerHTML = '';
     
-    if (!window.dataManager.savedClassCollections || window.dataManager.savedClassCollections.length === 0) {
+    if (!savedCollections || savedCollections.length === 0) {
         console.log('No saved class collections found');
         listContainer.innerHTML = '<div class="empty-message">No saved class collections found.</div>';
     } else {
         // Create list items for each saved class collection
-        window.dataManager.savedClassCollections.forEach(collection => {
+        savedCollections.forEach(collection => { // Use local variable
             const item = document.createElement('div');
             item.className = 'saved-schedule-item';
             
@@ -749,23 +729,22 @@ function previewClassCollection(id) {
 
 // Function to load a class collection
 function loadClassCollection(id) {
-    const collection = window.dataManager.getSavedClassCollectionById(id);
+    // Use temporary global access
+    const collection = window.appInitializer?.dataManager?.getSavedClassCollectionById(id);
     if (!collection) {
-        if (window.showMessage) {
-            window.showMessage('error', 'Could not find the saved class collection.');
-        } else {
-            uiManager.showMessage('Could not find the saved class collection.');
-        }
+        // Use uiManager directly with type
+        uiManager.showMessage('error', 'Could not find the saved class collection.');
         return;
     }
     
-    // Check if there are any existing classes
-    const hasExistingClasses = window.dataManager.getClasses().length > 0;
+    // Check if there are any existing classes (using temporary global access)
+    const currentClasses = window.appInitializer?.dataManager?.classRepository?.getClasses() || [];
+    const hasExistingClasses = currentClasses.length > 0;
     
-    // Check if any existing classes are scheduled
-    const hasScheduledClasses = hasExistingClasses && 
-                               window.dataManager.getClasses().some(classInfo => 
-                                   window.dataManager.isClassScheduled(classInfo.name));
+    // Check if any existing classes are scheduled (using temporary global access)
+    const hasScheduledClasses = hasExistingClasses &&
+                               (window.appInitializer?.dataManager?.classRepository?.getClasses() || []).some(classInfo =>
+                                   window.appInitializer?.dataManager?.classRepository?.isClassScheduled(classInfo.name));
     
     if (hasExistingClasses) {
         // Show conflict resolution dialog if there are existing classes
@@ -778,17 +757,16 @@ function loadClassCollection(id) {
 
 // Function to delete a class collection
 function deleteClassCollection(id) {
-    const collection = window.dataManager.getSavedClassCollectionById(id);
+    // Use temporary global access
+    const collection = window.appInitializer?.dataManager?.getSavedClassCollectionById(id);
     if (!collection) return;
     
     const name = collection.name;
     
-    if (window.dataManager.deleteSavedClassCollection(id)) {
-        if (window.showMessage) {
-            window.showMessage('success', `Class collection "${name}" deleted.`);
-        } else {
-            uiManager.showMessage(`Class collection "${name}" deleted.`, 'success');
-        }
+    // Use temporary global access
+    if (window.appInitializer?.dataManager?.deleteSavedClassCollection(id)) {
+        // Use uiManager directly with correct argument order
+        uiManager.showMessage('success', `Class collection "${name}" deleted.`);
     } else {
         if (window.showMessage) {
             window.showMessage('error', `Failed to delete class collection "${name}". Please try again.`);
@@ -803,9 +781,10 @@ function showClassCollectionConflictDialog(collection, hasScheduledClasses) {
     const modal = document.getElementById('class-collection-conflict-modal');
     const contentEl = document.getElementById('class-collection-conflict-details');
     
-    // Build the content based on whether there are scheduled classes
+    // Build the content based on whether there are scheduled classes (using temporary global access)
+    const currentClassCount = window.appInitializer?.dataManager?.classRepository?.getClasses()?.length || 0;
     let content = `
-        <p>You already have ${window.dataManager.getClasses().length} classes defined in your system.</p>
+        <p>You already have ${currentClassCount} classes defined in your system.</p>
     `;
     
     if (hasScheduledClasses) {
@@ -873,7 +852,8 @@ function showClassCollectionConflictDialog(collection, hasScheduledClasses) {
 // Function to apply a loaded class collection
 function applyLoadedClassCollection(collection, mode) {
     try {
-        const currentClasses = window.dataManager.getClasses();
+        // Use temporary global access
+        const currentClasses = window.appInitializer?.dataManager?.classRepository?.getClasses() || [];
         let newClasses = [];
         let updateStats = {
             added: 0,
@@ -939,11 +919,22 @@ function applyLoadedClassCollection(collection, mode) {
                 break;
         }
         
-        // Update the classes in dataManager
-        window.dataManager.classes = newClasses;
+        // Update the classes via DataStore (temporary global access)
+        // TODO: Replace this with proper ClassRepository method calls when refactoring class-manager
+        if (window.appInitializer?.dataManager?.dataStore) {
+            window.appInitializer.dataManager.dataStore.classes = newClasses;
+        } else {
+             console.error("Cannot update classes: DataStore not found via appInitializer.");
+             throw new Error("Failed to update class data."); // Throw error to be caught below
+        }
         
-        // Save to localStorage
-        localStorage.setItem('cooking-classes', JSON.stringify(newClasses));
+        // Save via DataManager's persistence method (temporary global access)
+        // TODO: Replace this with proper ClassRepository method calls when refactoring class-manager
+        if (window.appInitializer?.dataManager?.saveSavedClassCollectionsToLocalStorage) {
+            window.appInitializer.dataManager.saveSavedClassCollectionsToLocalStorage();
+        } else {
+            console.error("Cannot save class collections: DataManager or save method not found.");
+        }
         
         // Refresh the class list - pass null to ensure no class is selected
         refreshClassList(null);
@@ -985,7 +976,7 @@ function applyLoadedClassCollection(collection, mode) {
         if (window.showMessage) {
             window.showMessage('success', message);
         } else {
-            uiManager.showMessage(message, 'success');
+            uiManager.showMessage('success', message); // Correct argument order
         }
         
     } catch (error) {
@@ -993,7 +984,7 @@ function applyLoadedClassCollection(collection, mode) {
         if (window.showMessage) {
             window.showMessage('error', 'Failed to load class collection due to an error. Please try again.');
         } else {
-            uiManager.showMessage('Failed to load class collection due to an error. Please try again.');
+            uiManager.showMessage('error', 'Failed to load class collection due to an error. Please try again.'); // Add type argument
         }
     }
 }

@@ -1,4 +1,5 @@
 // Scheduler logic
+import { getDayFromDate } from './date-utils.js'; // Import date utility
 
 export class Scheduler { // Added export
     constructor(dataManager) {
@@ -14,12 +15,12 @@ export class Scheduler { // Added export
         }
 
         // Get class information to check specific conflicts
-        const classInfo = this.dataManager.getClasses().find(c => c.name === className);
+        const classInfo = this.dataManager.classRepository.getClasses().find(c => c.name === className); // Use repository
         if (classInfo) {
             // Get day of week from date - consistent with how data.js does it
             const [year, month, day] = dateStr.split('-').map(num => parseInt(num, 10));
             const date = new Date(year, month - 1, day); // month is 0-indexed in JS
-            const dayOfWeek = this.dataManager.getDayFromDate(date);
+            const dayOfWeek = getDayFromDate(date); // Use imported function
             
             // Always check for class-specific conflicts first (these take absolute priority)
             if (classInfo.conflicts[dayOfWeek] && 
@@ -179,57 +180,62 @@ export class Scheduler { // Added export
         const invalid = [];
         const weekSchedule = this.dataManager.getCurrentWeekSchedule();
         
-        // Check consecutive classes
-        if (newConfig.maxConsecutiveClasses < this.dataManager.config.maxConsecutiveClasses) {
-            Object.keys(weekSchedule).forEach(dateStr => {
+        // Check consecutive classes against the provided config
+        // Removed flawed comparison: if (newConfig.maxConsecutiveClasses < this.dataManager.config.maxConsecutiveClasses)
+        Object.keys(weekSchedule).forEach(dateStr => {
+            let consecutiveCount = 0;
+            for (let p = 1; p <= 8; p++) {
+                if (weekSchedule[dateStr][p]) {
+                    consecutiveCount++;
+                } else {
+                    consecutiveCount = 0; // Reset counter on empty slot
+                }
+                
+                // Check if the *end* of a consecutive block violates the limit
+                if (consecutiveCount > newConfig.maxConsecutiveClasses) {
+                     // If the *current* slot makes it too long, mark it invalid
+                     // (This logic might need refinement depending on exact requirement)
+                     if(weekSchedule[dateStr][p]) {
+                          invalid.push({
+                              className: weekSchedule[dateStr][p],
+                              dateStr,
+                              period: p,
+                              reason: `Exceeds max consecutive classes (${newConfig.maxConsecutiveClasses})`
+                          });
+                     }
+                }
+            }
+        });
+        
+        // Check daily class limit against the provided config
+        // Removed flawed comparison: if (newConfig.maxClassesPerDay < this.dataManager.config.maxClassesPerDay)
+        Object.keys(weekSchedule).forEach(dateStr => {
+            const dailyClasses = this.countDailyClasses(dateStr);
+            if (dailyClasses > newConfig.maxClassesPerDay) {
+                // Find the classes exceeding the limit and mark them invalid
+                let count = 0;
+                const classesInDay = [];
                 for (let p = 1; p <= 8; p++) {
-                    const className = weekSchedule[dateStr][p];
-                    if (!className) continue;
-                    
-                    // Check if this class has more consecutive classes than the new limit
-                    const consecutive = this.countConsecutiveClasses(dateStr, p);
-                    if (consecutive >= newConfig.maxConsecutiveClasses) {
-                        invalid.push({
-                            className,
-                            dateStr,
-                            period: p,
-                            reason: `Would create ${consecutive + 1} consecutive classes (new limit: ${newConfig.maxConsecutiveClasses})`
-                        });
+                    if (weekSchedule[dateStr][p]) {
+                        classesInDay.push({ className: weekSchedule[dateStr][p], period: p });
                     }
                 }
-            });
-        }
-        
-        // Check daily class limit
-        if (newConfig.maxClassesPerDay < this.dataManager.config.maxClassesPerDay) {
-            Object.keys(weekSchedule).forEach(dateStr => {
-                const dailyClasses = this.countDailyClasses(dateStr);
-                if (dailyClasses > newConfig.maxClassesPerDay) {
-                    // Add the last (dailyClasses - newConfig.maxClassesPerDay) classes to invalid list
-                    const toRemove = dailyClasses - newConfig.maxClassesPerDay;
-                    let found = 0;
-                    
-                    // Start from last period and work backwards to find classes to mark invalid
-                    for (let p = 8; p >= 1 && found < toRemove; p--) {
-                        const className = weekSchedule[dateStr][p];
-                        if (className) {
-                            invalid.push({
-                                className,
-                                dateStr,
-                                period: p,
-                                reason: `Exceeds new daily limit of ${newConfig.maxClassesPerDay} classes`
-                            });
-                            found++;
-                        }
-                    }
+                // Mark the last ones that exceed the limit
+                for (let i = classesInDay.length - 1; i >= 0 && count < (dailyClasses - newConfig.maxClassesPerDay); i--, count++) {
+                     invalid.push({
+                         className: classesInDay[i].className,
+                         dateStr,
+                         period: classesInDay[i].period,
+                         reason: `Exceeds max daily classes (${newConfig.maxClassesPerDay})`
+                     });
                 }
-            });
-        }
+            } // End of if (dailyClasses > newConfig.maxClassesPerDay)
+        }); // End of Object.keys(weekSchedule).forEach for daily check
         
-        // Check weekly class limit
-        if (newConfig.maxClassesPerWeek < this.dataManager.config.maxClassesPerWeek) {
-            const weeklyClasses = this.countWeeklyClasses();
-            if (weeklyClasses > newConfig.maxClassesPerWeek) {
+        // Check weekly class limit against the provided config
+        // Removed flawed comparison: if (newConfig.maxClassesPerWeek < this.dataManager.config.maxClassesPerWeek)
+        const weeklyClasses = this.countWeeklyClasses();
+        if (weeklyClasses > newConfig.maxClassesPerWeek) {
                 // Add the last (weeklyClasses - newConfig.maxClassesPerWeek) classes to invalid list
                 const toRemove = weeklyClasses - newConfig.maxClassesPerWeek;
                 let found = 0;
@@ -253,8 +259,8 @@ export class Scheduler { // Added export
                         }
                     }
                 }
-            }
-        }
+            } // End of if (weeklyClasses > newConfig.maxClassesPerWeek)
+        // Removed extra closing brace from the deleted 'if' condition
         
         return invalid;
     }

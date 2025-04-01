@@ -5,30 +5,41 @@
 *   [x] **Assessment:** Completed initial code analysis, identified large files, assessed test coverage (low for target files), reviewed documentation.
 *   [ ] **Prerequisite - Enhance Test Coverage:**
     *   [ ] `app.js`: Characterization tests added (`test/app.characterization.test.js`), basic initialization and modal opening verified. Drag-and-drop and suggest button tests added, but DOM update assertions are currently commented out due to JSDOM limitations.
-    *   [ ] `data.js`: Tests needed.
+    *   [ ] `data.js`: Tests exist (`test/data-manager.test.js`) for refactored structure, but original characterization tests were skipped.
     *   [ ] `class-manager.js`: Tests needed.
     *   [ ] `solver-wrapper.js`: Tests needed.
     *   [ ] `visualization.js`: Tests needed.
     *   [ ] `analytics.js`: Tests needed.
-*   [ ] **Refactoring `src/app.js` (Target 1):**
+*   [x] **Refactoring `src/app.js` (Target 1):** (Complete)
     *   [x] Create `src/ui-manager.js`.
     *   [x] Move helper functions (`createElementWithClass`, `showMessage`) to `UIManager`.
     *   [x] Update `app.js` to import and use `UIManager` for moved functions.
     *   [x] Fix browser module loading (`type="module"` in `index.html`, add necessary exports/imports).
-    *   [x] Move `initializeUI` to `UIManager`. (Verified with tests, except known D&D issue)
-    *   [x] Move `renderScheduleGrid` to `UIManager`. (Verified with tests, except known D&D issue)
-    *   [x] Move `renderUnscheduledClasses` to `UIManager`. (Verified with tests, except known D&D issue)
-    *   [x] Move `highlightAvailableSlots` to `UIManager`. (Verified with tests, except known D&D issue)
-    *   [x] Move `clearHighlights` to `UIManager`. (Verified with tests, except known D&D issue)
-    *   [x] Move `updateProgress` to `UIManager`. (Verified with tests, except known D&D issue)
-    *   [x] Move `updateCurrentWeekDisplay` to `UIManager`. (Verified with tests, except known D&D issue)
-    *   [x] Move `updateConstraintStatus` to `UIManager`. (Verified with tests, except known D&D issue)
-    *   [x] Move `markTeacherUnavailabilityPeriods` to `UIManager`. (Verified with tests)
-    *   [x] Create `AppInitializer`. (Moved init logic, updated index.html)
-    *   [x] Create `EventHandlerService`. (Moved interaction handlers: drag/drop, buttons, date, teacher mode, cell click)
-    *   [x] Extract Feature Controllers. (Created Config, SaveLoad, Analytics, WhatIf controllers; moved functions)
+    *   [x] Move `initializeUI` to `UIManager`.
+    *   [x] Move `renderScheduleGrid` to `UIManager`.
+    *   [x] Move `renderUnscheduledClasses` to `UIManager`.
+    *   [x] Move `highlightAvailableSlots` to `UIManager`.
+    *   [x] Move `clearHighlights` to `UIManager`.
+    *   [x] Move `updateProgress` to `UIManager`.
+    *   [x] Move `updateCurrentWeekDisplay` to `UIManager`.
+    *   [x] Move `updateConstraintStatus` to `UIManager`.
+    *   [x] Move `markTeacherUnavailabilityPeriods` to `UIManager`.
+    *   [x] Create `AppInitializer`.
+    *   [x] Create `EventHandlerService`.
+    *   [x] Extract Feature Controllers.
     *   [x] Decouple Globals.
-*   [ ] **Refactoring `src/data.js` (Target 2)**
+*   [-] **Refactoring `src/data.js` (Target 2)** (In Progress)
+    *   [ ] Tests: Tests exist for refactored structure, original characterization tests skipped.
+    *   [x] Extract `DateUtils`.
+    *   [x] Extract `CSVParser`.
+    *   [x] Introduce `PersistenceService`.
+    *   [x] Introduce `DataStore`.
+    *   [-] Extract Repositories:
+        *   [x] `ClassRepository` created and used.
+        *   [ ] `ScheduleRepository` not created.
+        *   [ ] `ConfigManager` not created.
+        *   [ ] `SavedStateRepository` not created.
+    *   [ ] Refactor Dependents: Ongoing.
 *   [ ] **Refactoring `src/class-manager.js` (Target 3)**
 *   [ ] **Refactoring `src/solver-wrapper.js` (Target 4)**
 *   [ ] **Refactoring `src/visualization.js` (Target 5)**
