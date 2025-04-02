@@ -5,7 +5,7 @@ import { getDayFromDate, getFormattedDate } from './date-utils.js';
  * UIManager
  * Handles direct DOM manipulation, rendering, and UI updates.
  */
-class UIManager {
+export class UIManager { // Add export
     // Reverted Constructor (doesn't require dataManager instance for now)
     constructor() {
                 // Cache frequently accessed elements if necessary (or select when needed)
@@ -17,13 +17,15 @@ class UIManager {
 
     /**
      * Sets the required service dependencies for the UIManager.
-     * @param {DataManager} dataManager - The DataManager instance.
-     * @param {Scheduler} scheduler - The Scheduler instance.
-     * @param {EventHandlerService} eventHandlerService - The EventHandlerService instance.
+     * @param {import('./repositories/schedule-repository.js').ScheduleRepository} scheduleRepository - The ScheduleRepository instance.
+     * @param {import('./data.js').DataManager} dataManager - The DataManager instance (needed for config, etc.).
+     * @param {import('./scheduler.js').Scheduler} scheduler - The Scheduler instance.
+     * @param {import('./event-handler-service.js').default} eventHandlerService - The EventHandlerService instance.
      */
-    setDependencies(dataManager, scheduler, eventHandlerService) {
-        this.dataManager = dataManager;
-        this.scheduler = scheduler; // Store scheduler instance
+    setDependencies(scheduleRepository, dataManager, scheduler, eventHandlerService) {
+        this.scheduleRepository = scheduleRepository;
+        this.dataManager = dataManager; // Store dataManager as well
+        this.scheduler = scheduler;
         this.eventHandlerService = eventHandlerService;
     }
 
@@ -114,10 +116,10 @@ class UIManager {
             return;
         }
         // Ensure grid is empty before building structure
-        scheduleGrid.innerHTML = ''; 
+        scheduleGrid.innerHTML = '';
 
-        // Get dates for the current week using the stored dataManager
-        const weekDates = this.dataManager.getCurrentWeekDates();
+        // Get dates for the current week using the stored scheduleRepository
+        const weekDates = this.scheduleRepository.getCurrentWeekDates(); // Use scheduleRepository
         console.log("[renderScheduleGrid] Received weekDates:", weekDates.map(d => d.toISOString())); // Log dates received by UI
 
         // Debug current week dates
@@ -217,9 +219,9 @@ class UIManager {
      */
     // Re-add scheduler and teacherModeActive parameters
     renderScheduleGrid(scheduler, teacherModeActive) {
-                // Ensure dataManager and eventHandlerService are available
-        if (!this.dataManager || !this.eventHandlerService) {
-            console.error("UIManager.renderScheduleGrid: dataManager or eventHandlerService is not set.");
+                // Ensure scheduleRepository and eventHandlerService are available
+        if (!this.scheduleRepository || !this.eventHandlerService) { // Check scheduleRepository
+            console.error("UIManager.renderScheduleGrid: scheduleRepository or eventHandlerService is not set.");
             return;
         }
 
@@ -232,7 +234,7 @@ class UIManager {
         // we change initializeUI to not clear everything. For now, keep it simple.
         // document.querySelectorAll('.grid-cell').forEach(cell => { ... }); // Clearing is handled by initializeUI
 
-        const schedule = this.dataManager.getCurrentWeekSchedule(); // Use the correct method name
+        const schedule = this.scheduleRepository.getCurrentWeekSchedule(); // Use scheduleRepository
         // DEBUG: Log the schedule data being used for rendering
                 
         // Add scheduled classes to grid
@@ -297,7 +299,7 @@ class UIManager {
                         // Add double-click to unschedule
                         classElement.addEventListener('dblclick', () => {
                              if (confirm(`Remove ${className} from this time slot?`)) {
-                                  this.dataManager.unscheduleClass(dateStr, period);
+                                  this.scheduleRepository.unscheduleClass(dateStr, period); // Use scheduleRepository
                                   
                                   // Explicitly save to localStorage (Consider moving this logic out later)
                                   if (window.saveScheduleToLocalStorage) { // Keep global check for now
@@ -356,9 +358,9 @@ class UIManager {
      */
     // Add scheduler parameter back
     renderUnscheduledClasses(scheduler) {
-                // Ensure dataManager is available
-        if (!this.dataManager) {
-            console.error("UIManager.renderUnscheduledClasses: dataManager is not set.");
+                // Ensure scheduleRepository is available
+        if (!this.scheduleRepository) { // Check scheduleRepository
+            console.error("UIManager.renderUnscheduledClasses: scheduleRepository is not set.");
             return;
         }
         
@@ -369,7 +371,7 @@ class UIManager {
         }
         unscheduledClassesContainer.innerHTML = '';
         
-        const unscheduledClasses = this.dataManager.getUnscheduledClasses();
+        const unscheduledClasses = this.scheduleRepository.getUnscheduledClasses(); // Use scheduleRepository
         
         unscheduledClasses.forEach(classInfo => {
             const classElement = this.createElementWithClass('div', 'class-item', classInfo.name);
@@ -428,9 +430,9 @@ class UIManager {
      * @param {Scheduler} scheduler - The scheduler instance for validation.
      */
     highlightAvailableSlots(className, scheduler) {
-        // Ensure dataManager and scheduler are available
-        if (!this.dataManager) {
-            console.error("UIManager.highlightAvailableSlots: dataManager is not set.");
+        // Ensure scheduleRepository and scheduler are available
+        if (!this.scheduleRepository) { // Check scheduleRepository
+            console.error("UIManager.highlightAvailableSlots: scheduleRepository is not set.");
             return;
         }
         if (!scheduler) {
@@ -463,11 +465,11 @@ class UIManager {
             }
         });
         
-        // Get current week dates using internal dataManager
-        const weekDates = this.dataManager.getCurrentWeekDates();
+        // Get current week dates using internal scheduleRepository
+        const weekDates = this.scheduleRepository.getCurrentWeekDates(); // Use scheduleRepository
         
-        // Get the class info to check conflicts using internal dataManager's repository
-        const classInfo = this.dataManager.classRepository.getClasses().find(c => c.name === className); // Use repository
+        // Get the class info to check conflicts using internal scheduleRepository's classRepository
+        const classInfo = this.scheduleRepository.classRepository.getClasses().find(c => c.name === className); // Use scheduleRepository.classRepository
         if (!classInfo) return;
         
         // Process all cells on the grid
@@ -497,8 +499,8 @@ class UIManager {
                     // No conflicts, mark as available - even if teacher is unavailable
                     cell.classList.add('available');
                     
-                    // Set appropriate tooltip based on teacher availability using internal dataManager
-                    if (this.dataManager.isTeacherUnavailable(dateStr, period)) {
+                    // Set appropriate tooltip based on teacher availability using internal scheduleRepository
+                    if (this.scheduleRepository.isTeacherUnavailable(dateStr, period)) { // Use scheduleRepository
                         cell.title = `Available with confirmation - Teacher is marked as unavailable during this period.`;
                     } else {
                         cell.title = `Available slot for ${className}`;
@@ -511,7 +513,7 @@ class UIManager {
                 
                 // Re-apply teacher unavailability class if it was there before
                 // (Should be redundant since we're not removing it, but just to be safe)
-                if (this.dataManager.isTeacherUnavailable(dateStr, period)) {
+                if (this.scheduleRepository.isTeacherUnavailable(dateStr, period)) { // Use scheduleRepository
                     cell.classList.add('teacher-unavailable');
                 }
             }
@@ -548,13 +550,14 @@ class UIManager {
      * Updates the progress bar and text based on the number of scheduled classes.
      */
     updateProgress() {
-        // Ensure dataManager is available
-        if (!this.dataManager) {
-            console.error("UIManager.updateProgress: dataManager is not set.");
+        // Ensure scheduleRepository is available (needed for getUnscheduledClasses)
+        if (!this.scheduleRepository) { // Check scheduleRepository
+            console.error("UIManager.updateProgress: scheduleRepository is not set.");
             return;
         }
         
-        const totalClasses = this.dataManager.classRepository.getClasses().length; // Use repository
+        // Access classRepository via scheduleRepository
+        const totalClasses = this.scheduleRepository.classRepository.getClasses().length;
         // Handle division by zero if there are no classes
         if (totalClasses === 0) {
             const progressBar = document.getElementById('schedule-progress');
@@ -564,7 +567,7 @@ class UIManager {
             return;
         }
         
-        const scheduledClassCount = totalClasses - this.dataManager.getUnscheduledClasses().length;
+        const scheduledClassCount = totalClasses - this.scheduleRepository.getUnscheduledClasses().length; // Use scheduleRepository
         const progressPercent = (scheduledClassCount / totalClasses) * 100;
         
         // Update progress bar
@@ -595,14 +598,14 @@ class UIManager {
             return;
         }
         
-        // Ensure dataManager is available
-        if (!this.dataManager) {
-            console.error("UIManager.updateCurrentWeekDisplay: dataManager is not set.");
+        // Ensure scheduleRepository is available (as it's the primary injected dependency now)
+        if (!this.scheduleRepository) { // Check scheduleRepository
+            console.error("UIManager.updateCurrentWeekDisplay: scheduleRepository is not set.");
             weekDisplay.textContent = "Week dates unavailable";
             return;
         }
         
-        const dates = this.dataManager.getCurrentWeekDates();
+        const dates = this.scheduleRepository.getCurrentWeekDates(); // Use scheduleRepository
         
         if (dates && dates.length > 0) {
             // Ensure we're using the actual Monday-Friday range that the calendar shows
@@ -668,14 +671,14 @@ class UIManager {
      * Marks cells on the grid where the teacher is marked as unavailable.
      */
     markTeacherUnavailabilityPeriods() {
-        // Ensure dataManager is available
-        if (!this.dataManager) {
-            console.error("UIManager.markTeacherUnavailabilityPeriods: dataManager is not set.");
+        // Ensure scheduleRepository is available
+        if (!this.scheduleRepository) { // Check scheduleRepository
+            console.error("UIManager.markTeacherUnavailabilityPeriods: scheduleRepository is not set.");
             return;
         }
         
         // Get dates for the current week
-        const weekDates = this.dataManager.getCurrentWeekDates();
+        const weekDates = this.scheduleRepository.getCurrentWeekDates(); // Use scheduleRepository
         
         weekDates.forEach(date => {
             const dateStr = getFormattedDate(date); // Use imported function
@@ -689,7 +692,7 @@ class UIManager {
                 cell.classList.remove('teacher-unavailable');
                 
                 // Then check and add marker if unavailable
-                if (this.dataManager.isTeacherUnavailable(dateStr, period)) {
+                if (this.scheduleRepository.isTeacherUnavailable(dateStr, period)) { // Use scheduleRepository
                     cell.classList.add('teacher-unavailable');
                     // Update title only if the cell isn't already scheduled or marked as a conflict
                     if (!cell.classList.contains('scheduled') && !cell.classList.contains('conflict')) {
@@ -702,31 +705,4 @@ class UIManager {
     }
   }
   
-  // Export an instance or the class depending on desired usage pattern
-// Using a single instance might be simpler for now
-// Instantiate with a placeholder or handle dependency differently later
-// For now, let's assume DataManager is globally available or handle it in app.js
-// Reverting to default export for compatibility with class-manager.js
-
-// !!! This needs a proper DataManager instance. We'll rely on app.js to create it first.
-// This is a temporary workaround until dependency injection is fully implemented.
-let uiManager;
-// We cannot instantiate here without DataManager. app.js will create and potentially expose it.
-// Or, we revert the constructor change temporarily. Let's revert constructor too.
-
-// Reverted Constructor:
-// constructor() {
-//     this.dataManager = null; // Will be set by app.js or refactored later
-//     this.messageArea = document.getElementById('message-area');
-// }
-
-// --- Reverting to simple instance export ---
-// Note: The initializeUI method added previously still needs dataManager.
-// This highlights the need for proper dependency management.
-// For now, let's revert the constructor change as well to avoid errors on load.
-
-// --- Misplaced constructor removed ---
-
-// Re-exporting default instance
-uiManager = new UIManager(); // Create instance (constructor doesn't need dataManager now)
-export default uiManager;
+  // Remove instance creation and default export

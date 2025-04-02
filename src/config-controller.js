@@ -2,10 +2,17 @@
 // Assuming Scheduler and DataManager are passed in
 
 class ConfigController {
-    constructor(dataManager, scheduler, uiManager) {
-        this.dataManager = dataManager;
+    /**
+     * @param {import('./data.js').DataManager} dataManager
+     * @param {import('./scheduler.js').Scheduler} scheduler
+     * @param {import('./ui-manager.js').UIManager} uiManager
+     * @param {import('./repositories/schedule-repository.js').ScheduleRepository} scheduleRepository
+     */
+    constructor(dataManager, scheduler, uiManager, scheduleRepository) {
+        this.dataManager = dataManager; // Still needed for getConfig
         this.scheduler = scheduler;
-        this.uiManager = uiManager; // Assuming UIManager instance is passed
+        this.uiManager = uiManager;
+        this.scheduleRepository = scheduleRepository; // Store the new dependency
         console.log("ConfigController initialized");
     }
 
@@ -108,7 +115,7 @@ class ConfigController {
                             action: () => {
                                 // Remove invalid placements
                                 invalidPlacements.forEach(p => {
-                                    this.dataManager.unscheduleClass(p.dateStr, p.period);
+                                    this.scheduleRepository.unscheduleClass(p.dateStr, p.period); // Use scheduleRepository
                                 });
                                 
                                 // Update config

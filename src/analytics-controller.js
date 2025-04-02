@@ -3,9 +3,17 @@
 import ScheduleAnalytics from './analytics.js'; // Assuming analytics.js exports the necessary object/class
 
 class AnalyticsController {
-    constructor(dataManager, uiManager) {
-        this.dataManager = dataManager;
+    /**
+     * @param {import('./repositories/schedule-repository.js').ScheduleRepository} scheduleRepository
+     * @param {import('./repositories/class-repository.js').ClassRepository} classRepository
+     * @param {import('./ui-manager.js').UIManager} uiManager
+     * @param {import('./data.js').DataManager} dataManager - Needed for getConfig
+     */
+    constructor(scheduleRepository, classRepository, uiManager, dataManager) {
+        this.scheduleRepository = scheduleRepository; // Store scheduleRepository
+        this.classRepository = classRepository;     // Store classRepository
         this.uiManager = uiManager;
+        this.dataManager = dataManager;         // Store dataManager
         console.log("AnalyticsController initialized");
     }
 
@@ -58,8 +66,9 @@ class AnalyticsController {
             container.innerHTML = '<p class="loading-indicator">Analyzing schedule...</p>';
             
             // Create copies of data to prevent accidental modification
-            const scheduleCopy = JSON.parse(JSON.stringify(this.dataManager.scheduleWeeks));
-            const constraintsCopy = JSON.parse(JSON.stringify(this.dataManager.getConfig()));
+            // Access scheduleWeeks via scheduleRepository.dataStore
+            const scheduleCopy = JSON.parse(JSON.stringify(this.scheduleRepository.dataStore.scheduleWeeks));
+            const constraintsCopy = JSON.parse(JSON.stringify(this.dataManager.getConfig())); // getConfig is correct
             
             // Get current metrics using ScheduleAnalytics
             const metrics = ScheduleAnalytics.calculateMetrics(scheduleCopy, constraintsCopy);
@@ -132,9 +141,9 @@ class AnalyticsController {
     updateAnalyticsView() {
         try {
             // Create COPIES of data to prevent accidental modification
-            const scheduleCopy = JSON.parse(JSON.stringify(this.dataManager.dataStore.scheduleWeeks)); // Access via dataStore
+            const scheduleCopy = JSON.parse(JSON.stringify(this.scheduleRepository.dataStore.scheduleWeeks)); // Use scheduleRepository.dataStore
             const constraintsCopy = JSON.parse(JSON.stringify(this.dataManager.getConfig())); // getConfig is correct
-            const classList = this.dataManager.classRepository.getClasses(); // Get class list
+            const classList = this.classRepository.getClasses(); // Use injected classRepository
             
             // Calculate metrics using ScheduleAnalytics
             const metrics = ScheduleAnalytics.calculateMetrics(scheduleCopy, constraintsCopy);
@@ -257,10 +266,10 @@ class AnalyticsController {
                 let className = '';
                 let cellClass = 'heatmap-cell empty';
                 
-                if (weekOffset !== null && 
-                    this.dataManager.scheduleWeeks[weekOffset]?.[dateStr]?.[period]) {
+                if (weekOffset !== null &&
+                    this.scheduleRepository.dataStore.scheduleWeeks[weekOffset]?.[dateStr]?.[period]) { // Use scheduleRepository.dataStore
                     
-                    className = this.dataManager.scheduleWeeks[weekOffset][dateStr][period];
+                    className = this.scheduleRepository.dataStore.scheduleWeeks[weekOffset][dateStr][period]; // Use scheduleRepository.dataStore
                     const dayStatus = metrics.dailyBalance[dateStr]?.status || 'balanced';
                     cellClass = `heatmap-cell ${dayStatus}`;
                 }
@@ -411,8 +420,9 @@ class AnalyticsController {
     // Utility to find week offset for a date (used by heatmap)
     findWeekOffsetForDate(dateStr) {
         // Find which week offset contains this date
-        for (const weekOffset in this.dataManager.scheduleWeeks) {
-            if (this.dataManager.scheduleWeeks[weekOffset]?.[dateStr]) { // Safer access
+        // Access scheduleWeeks via scheduleRepository.dataStore
+        for (const weekOffset in this.scheduleRepository.dataStore.scheduleWeeks) {
+            if (this.scheduleRepository.dataStore.scheduleWeeks[weekOffset]?.[dateStr]) { // Use scheduleRepository.dataStore
                 return weekOffset;
             }
         }

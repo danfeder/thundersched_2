@@ -634,18 +634,20 @@ const ConstraintSolverWrapper = (function() {
          * @param {Object} scheduleData - Copy of schedule data
          * @param {Object} currentConstraints - Current constraints (Note: This seems unused now, consider removing later)
          * @param {Object} newConstraints - Modified constraints
-         * @param {Object} dataManager - The DataManager instance.
+         * @param {import('./repositories/schedule-repository.js').ScheduleRepository} scheduleRepository - Schedule repository instance.
+         * @param {import('./repositories/class-repository.js').ClassRepository} classRepository - Class repository instance.
          * @return {Promise<Object>} Simulation results
          */
-        simulateConstraintChanges: async function(scheduleData, currentConstraints, newConstraints, dataManager) {
+        simulateConstraintChanges: async function(scheduleData, currentConstraints, newConstraints, scheduleRepository, classRepository) {
             // Ensure solver is initialized, fall back on error
             if (!_isInitialized) {
                 try {
                     await this.initialize();
                 } catch (initError) {
                     console.error('Solver initialization failed during simulation, using basic simulation:', initError);
-                    // Pass dataManager to fallback
-                    const fallbackResult = basicConstraintSimulation(scheduleData, currentConstraints, newConstraints, dataManager);
+                    // Pass necessary data to fallback, removing dataManager dependency if possible
+                    // TODO: Refactor basicConstraintSimulation to not require dataManager
+                    const fallbackResult = basicConstraintSimulation(scheduleData, currentConstraints, newConstraints); // Removed dataManager for now
                     fallbackResult.source = 'fallback_init_error'; // Add source info
                     return fallbackResult;
                 }
@@ -654,21 +656,22 @@ const ConstraintSolverWrapper = (function() {
             // If initialization succeeded but _solver is still null (shouldn't happen but safety check)
              if (!_solver) {
                  console.error('Solver object not available after initialization, using basic simulation.');
-                 // Pass dataManager to fallback
-                 const fallbackResult = basicConstraintSimulation(scheduleData, currentConstraints, newConstraints, dataManager);
+                 // Pass necessary data to fallback
+                 // TODO: Refactor basicConstraintSimulation
+                 const fallbackResult = basicConstraintSimulation(scheduleData, currentConstraints, newConstraints); // Removed dataManager for now
                  fallbackResult.source = 'fallback_solver_missing';
                  return fallbackResult;
              }
 
             try {
                 console.log("Starting solver-based constraint simulation...");
-                // 1. Get necessary data from the passed dataManager instance
-                if (!dataManager || typeof dataManager.getClasses !== 'function') {
-                     throw new Error("Valid DataManager instance was not provided.");
+                // 1. Get necessary data from the passed repository instances
+                if (!scheduleRepository || !classRepository) {
+                     throw new Error("ScheduleRepository and ClassRepository instances are required.");
                 }
-                const classDefinitions = dataManager.getClasses();
-                // Access the full multi-week teacher unavailability directly from the instance
-                const teacherUnavailability = dataManager.teacherUnavailability || {};
+                const classDefinitions = classRepository.getClasses(); // Use classRepository
+                // Access teacher unavailability via scheduleRepository's dataStore
+                const teacherUnavailability = scheduleRepository.dataStore.teacherUnavailability || {};
                 
                 // 2. Build the solver model
                 console.time("Build Solver Model");
@@ -798,7 +801,8 @@ const ConstraintSolverWrapper = (function() {
 
                 } else { // Timeout or Error or Unknown
                     console.warn(`Solver finished with status: ${solverResult.status}. Falling back to basic simulation.`);
-                    const fallbackResult = basicConstraintSimulation(scheduleData, currentConstraints, newConstraints);
+                    // TODO: Refactor basicConstraintSimulation
+                    const fallbackResult = basicConstraintSimulation(scheduleData, currentConstraints, newConstraints); // Removed dataManager
                     fallbackResult.source = solverResult.status === 'timeout' ? 'fallback_timeout' : 'fallback_solver_error';
                     return fallbackResult; // Return the entire fallback result
                 }

@@ -378,6 +378,11 @@ export const createMockDataManager = (
 
         // Error Handling
         showErrorMessage: jest.fn(), // Simple mock
+        
+        // Add missing methods needed by ui-interactions tests
+        getScheduledClassCount: jest.fn().mockReturnValue(0), // Default mock
+        getTotalClassCount: jest.fn().mockReturnValue(0), // Default mock
+        // isTeacherUnavailable is already mocked above (line 309)
     };
 
     return mockDataManager;
@@ -414,8 +419,16 @@ export const createMockScheduler = (dataManager) => {
 export const simulateDragStart = (element) => {
   // Basic simulation, might need jsdom or similar for full DataTransfer mock
   const event = new Event('dragstart', { bubbles: true, cancelable: true });
-  event.dataTransfer = { setData: jest.fn(), getData: jest.fn(), effectAllowed: '', dropEffect: '' }; // Basic mock
+  // More realistic dataTransfer mock
+  const dtStore = {};
+  event.dataTransfer = {
+      setData: jest.fn((format, data) => { dtStore[format] = data; }),
+      getData: jest.fn((format) => dtStore[format]),
+      effectAllowed: '',
+      dropEffect: ''
+  };
   if(element.dataset.className) {
+      // This now uses the improved mock setData
       event.dataTransfer.setData('text/plain', element.dataset.className);
   }
   element.dispatchEvent(event);

@@ -173,7 +173,8 @@ describe('UI Interactions', () => {
 
       form.addEventListener('submit', (e) => {
         e.preventDefault();
-        dataManager.setConfig({
+        // Use updateConfig instead of setConfig
+        dataManager.updateConfig({
           maxConsecutiveClasses: 3,
           maxClassesPerDay: 6,
           minClassesPerWeek: 15,
@@ -184,7 +185,7 @@ describe('UI Interactions', () => {
       const submitEvent = createEvent('submit');
       form.dispatchEvent(submitEvent);
 
-      expect(dataManager.setConfig).toHaveBeenCalledWith({
+      expect(dataManager.updateConfig).toHaveBeenCalledWith({
         maxConsecutiveClasses: 3,
         maxClassesPerDay: 6,
         minClassesPerWeek: 15,
@@ -220,7 +221,7 @@ describe('UI Interactions', () => {
       cell.addEventListener('click', () => {
         if (document.body.classList.contains('teacher-mode-active')) {
           cell.classList.add('teacher-unavailable');
-          dataManager.markTeacherUnavailable(cell.dataset.date, parseInt(cell.dataset.period));
+          dataManager.toggleTeacherUnavailability(cell.dataset.date, parseInt(cell.dataset.period)); // Use toggleTeacherUnavailability
         }
       });
 

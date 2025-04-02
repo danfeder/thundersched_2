@@ -1,4 +1,4 @@
-import uiManager from './ui-manager.js'; // Assuming UIManager is a default export instance
+import { UIManager } from './ui-manager.js'; // Use named import for the class
 import { getDayFromDate, getFormattedDate } from './date-utils.js'; // Import date utilities
 // Import other necessary services/modules as needed
 // import dataManager from './data-manager.js'; // Example if needed
@@ -9,16 +9,23 @@ import { getDayFromDate, getFormattedDate } from './date-utils.js'; // Import da
  * Listens for events from UIManager and dispatches higher-level actions.
  */
 class EventHandlerService {
-    // Accept controller instances in the constructor
-    constructor(dataManager, scheduler, configController, saveLoadController, analyticsController, whatIfController) {
-        this.dataManager = dataManager;
+    /**
+     * @param {import('./repositories/schedule-repository.js').ScheduleRepository} scheduleRepository
+     * @param {import('./scheduler.js').Scheduler} scheduler
+     * @param {import('./ui-manager.js').UIManager} uiManager
+     * @param {import('./config-controller.js').default} configController
+     * @param {import('./save-load-controller.js').default} saveLoadController
+     * @param {import('./analytics-controller.js').default} analyticsController
+     * @param {import('./what-if-controller.js').default} whatIfController
+     */
+    constructor(scheduleRepository, scheduler, uiManager, configController, saveLoadController, analyticsController, whatIfController) {
+        this.scheduleRepository = scheduleRepository; // Use scheduleRepository
         this.scheduler = scheduler;
+        this.uiManager = uiManager;
         this.configController = configController;
         this.saveLoadController = saveLoadController;
         this.analyticsController = analyticsController;
         this.whatIfController = whatIfController;
-        // this.uiManager = uiManager; // Assuming uiManager is a singleton instance accessed via import
-
         console.log("EventHandlerService initialized");
         // TODO: Add event listeners for events emitted by UIManager
         // e.g., uiManager.on('ui:cellClicked', this.handleCellClick.bind(this));
@@ -38,7 +45,7 @@ class EventHandlerService {
         document.getElementById('schedule-grid').classList.add('dragging-active');
         
         // Immediately show available slots and conflicts when dragging starts
-        uiManager.highlightAvailableSlots(className, this.scheduler); // Use this.scheduler
+        this.uiManager.highlightAvailableSlots(className, this.scheduler); // Use this.uiManager
     }
     
     handleScheduledClassDragStart(e) {
@@ -56,7 +63,7 @@ class EventHandlerService {
         document.getElementById('schedule-grid').classList.add('dragging-active');
         
         // Show available slots for this class (like when it's clicked)
-        uiManager.highlightAvailableSlots(className, this.scheduler); // Use this.scheduler
+        this.uiManager.highlightAvailableSlots(className, this.scheduler); // Use this.uiManager
     }
     
     handleDragOver(e) {
@@ -94,7 +101,7 @@ class EventHandlerService {
         });
         
         // Clear highlighted cells when drag is canceled (not dropped)
-        uiManager.clearHighlights();
+        this.uiManager.clearHighlights(); // Use this.uiManager
     }
     
     handleDrop(e) {
@@ -122,7 +129,7 @@ class EventHandlerService {
         
         if (!dateStr || !period) {
             console.warn('[handleDrop] Drop target lacks date/period data.');
-            uiManager.clearHighlights(); // Still clear highlights if drop is invalid
+            this.uiManager.clearHighlights(); // Use this.uiManager
             return;
         }
         
@@ -133,12 +140,12 @@ class EventHandlerService {
             
             // If dropping on same position, do nothing
             if (originalDate === dateStr && originalPeriod === period) {
-                uiManager.clearHighlights(); // Use uiManager
+                this.uiManager.clearHighlights(); // Use this.uiManager
                 return;
             }
             
             // Remove from original position
-            this.dataManager.unscheduleClass(originalDate, originalPeriod); // Use this.dataManager
+            this.scheduleRepository.unscheduleClass(originalDate, originalPeriod); // Use scheduleRepository
             
             // Explicitly save to localStorage after unscheduling from original position
             if (window.saveScheduleToLocalStorage) { // Keep global check for now
@@ -147,7 +154,8 @@ class EventHandlerService {
         }
         
         // First check if there's a class-specific conflict (these always take priority)
-        const classInfo = this.dataManager.classRepository.getClasses().find(c => c.name === className); // Use repository
+        // Access classRepository via scheduleRepository
+        const classInfo = this.scheduleRepository.classRepository.getClasses().find(c => c.name === className);
         if (classInfo) {
             // Get the day of week for this date
             const [year, month, day] = dateStr.split('-').map(num => parseInt(num, 10));
@@ -159,22 +167,22 @@ class EventHandlerService {
                 classInfo.conflicts[dayOfWeek].includes(Number(period))) {
                 
                 // Show error message
-                uiManager.showMessage('error', `Cannot place ${className} here: Class has a conflict during this period.`);
+                this.uiManager.showMessage('error', `Cannot place ${className} here: Class has a conflict during this period.`); // Use this.uiManager
 
                 // If this was a scheduled class that we removed, put it back
                 if (source === 'scheduled') {
                     const originalDate = e.dataTransfer.getData('originalDate');
                     const originalPeriod = e.dataTransfer.getData('originalPeriod');
-                    this.dataManager.scheduleClass(className, originalDate, originalPeriod); // Use this.dataManager
-                    uiManager.renderScheduleGrid(this.scheduler, this.teacherModeActive); // Pass args
+                    this.scheduleRepository.scheduleClass(className, originalDate, originalPeriod); // Use scheduleRepository
+                    this.uiManager.renderScheduleGrid(this.scheduler, this.teacherModeActive); // Use this.uiManager
                 }
-                uiManager.clearHighlights(); // Ensure highlights are cleared on failure
+                this.uiManager.clearHighlights(); // Use this.uiManager
                 return; // Don't proceed with placement
             }
         }
         
         // ONLY THEN check for teacher unavailability (which can be overridden)
-        if (this.dataManager.isTeacherUnavailable(dateStr, period)) { // Use this.dataManager
+        if (this.scheduleRepository.isTeacherUnavailable(dateStr, period)) { // Use scheduleRepository
             // Use uiManager's confirm dialog if available, otherwise fallback
             const confirmOverride = confirm('Teacher is unavailable during this period. Are you sure you want to schedule a class here?');
             if (!confirmOverride) {
@@ -182,10 +190,10 @@ class EventHandlerService {
                 if (source === 'scheduled') {
                     const originalDate = e.dataTransfer.getData('originalDate');
                     const originalPeriod = e.dataTransfer.getData('originalPeriod');
-                    this.dataManager.scheduleClass(className, originalDate, originalPeriod); // Use this.dataManager
-                    uiManager.renderScheduleGrid(); // Remove renderHandlers argument
+                    this.scheduleRepository.scheduleClass(className, originalDate, originalPeriod); // Use scheduleRepository
+                    this.uiManager.renderScheduleGrid(this.scheduler, this.teacherModeActive); // Use this.uiManager and pass args
                 }
-                uiManager.clearHighlights(); // Ensure highlights are cleared on failure
+                this.uiManager.clearHighlights(); // Use this.uiManager
                 return;
             }
             // If user confirms, continue with placement
@@ -196,7 +204,7 @@ class EventHandlerService {
         
         if (validation.valid) {
             // Schedule the class
-            this.dataManager.scheduleClass(className, dateStr, period); // Use this.dataManager
+            this.scheduleRepository.scheduleClass(className, dateStr, period); // Use scheduleRepository
             
             // Explicitly save to localStorage to ensure persistence
             if (window.saveScheduleToLocalStorage) { // Keep global check for now
@@ -204,33 +212,33 @@ class EventHandlerService {
             }
             
             // Update UI
-            uiManager.renderScheduleGrid(this.scheduler, this.teacherModeActive); // Pass args
-            uiManager.renderUnscheduledClasses(this.scheduler); // Pass scheduler
-            uiManager.updateProgress();
+            this.uiManager.renderScheduleGrid(this.scheduler, this.teacherModeActive); // Use this.uiManager
+            this.uiManager.renderUnscheduledClasses(this.scheduler); // Use this.uiManager
+            this.uiManager.updateProgress(); // Use this.uiManager
             
             // Clear highlights
-            uiManager.clearHighlights();
+            this.uiManager.clearHighlights(); // Use this.uiManager
             
             // Show success message for rescheduled classes
             if (source === 'scheduled') {
-                const date = new Date(dateStr); // Assumes dateStr is 'YYYY-MM-DD'
-                const dayName = this.dataManager.getDayFromDate(date); // Use this.dataManager
-                uiManager.showMessage('success', `Moved ${className} to ${dayName}, ${dateStr}, Period ${period}`);
+                const date = new Date(dateStr + 'T00:00:00Z'); // Ensure UTC parsing
+                const dayName = this.scheduleRepository.dateUtils.getDayFromDate(date); // Use scheduleRepository.dateUtils
+                this.uiManager.showMessage('success', `Moved ${className} to ${dayName}, ${dateStr}, Period ${period}`); // Use this.uiManager
             } else {
-                 uiManager.showMessage('success', `Scheduled ${className} successfully.`);
+                 this.uiManager.showMessage('success', `Scheduled ${className} successfully.`); // Use this.uiManager
             }
         } else {
             // If this was a scheduled class that we removed, put it back
             if (source === 'scheduled') {
                 const originalDate = e.dataTransfer.getData('originalDate');
                 const originalPeriod = e.dataTransfer.getData('originalPeriod');
-                this.dataManager.scheduleClass(className, originalDate, originalPeriod); // Use this.dataManager
-                uiManager.renderScheduleGrid(); // Remove renderHandlers argument
+                this.scheduleRepository.scheduleClass(className, originalDate, originalPeriod); // Use scheduleRepository
+                this.uiManager.renderScheduleGrid(this.scheduler, this.teacherModeActive); // Use this.uiManager and pass args
             }
 
             // Show error message
-            uiManager.showMessage('error', `Cannot place class here: ${validation.reason}`);
-            uiManager.clearHighlights(); // Ensure highlights are cleared on failure
+            this.uiManager.showMessage('error', `Cannot place class here: ${validation.reason}`); // Use this.uiManager
+            this.uiManager.clearHighlights(); // Use this.uiManager
         }
     }
 
@@ -253,10 +261,10 @@ class EventHandlerService {
                 classElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                 
                 // Highlight available slots for this class
-                uiManager.highlightAvailableSlots(suggestedClass.name, this.scheduler); // Use this.scheduler
+                this.uiManager.highlightAvailableSlots(suggestedClass.name, this.scheduler); // Use this.uiManager
             }
         } else {
-            uiManager.showMessage('success', 'All classes have been scheduled!');
+            this.uiManager.showMessage('success', 'All classes have been scheduled!'); // Use this.uiManager
         }
     }
 
@@ -305,36 +313,36 @@ class EventHandlerService {
         document.body.removeChild(link);
 
         // Show success message
-        uiManager.showMessage('success', 'Complete schedule for all weeks exported successfully!');
+        this.uiManager.showMessage('success', 'Complete schedule for all weeks exported successfully!'); // Use this.uiManager
     }
 
     resetSchedule() {
         // Use uiManager's confirm dialog if available, otherwise fallback
         if (confirm('Are you sure you want to reset the schedule for the current week? This will remove all scheduled classes for this week only.')) {
             // Reset the schedule
-            this.dataManager.resetSchedule(); // Use this.dataManager
+            this.scheduleRepository.resetSchedule(); // Use scheduleRepository
             
             // Update UI (These should ideally be triggered by events later)
-            uiManager.renderScheduleGrid(this.scheduler, this.teacherModeActive); // Pass args
-            uiManager.renderUnscheduledClasses(this.scheduler); // Pass scheduler
-            uiManager.updateProgress();
-            uiManager.clearHighlights();
+            this.uiManager.renderScheduleGrid(this.scheduler, this.teacherModeActive); // Use this.uiManager
+            this.uiManager.renderUnscheduledClasses(this.scheduler); // Use this.uiManager
+            this.uiManager.updateProgress(); // Use this.uiManager
+            this.uiManager.clearHighlights(); // Use this.uiManager
 
             // Show message
-            uiManager.showMessage('info', 'Schedule for the current week has been reset.');
+            this.uiManager.showMessage('info', 'Schedule for the current week has been reset.'); // Use this.uiManager
         }
     }
-
-    navigateWeek(direction) {
-        // Navigate to previous or next week
-        this.dataManager.changeWeek(direction); // Use this.dataManager
-        
+navigateWeek(direction) {
+    // Navigate to previous or next week
+    this.scheduleRepository.changeWeek(direction); // Use scheduleRepository
+    
+    
         
         // Update UI (These should ideally be triggered by events later)
-        uiManager.renderScheduleGrid(this.scheduler, this.teacherModeActive); // Pass args
-        uiManager.updateProgress();
-        uiManager.clearHighlights();
-        uiManager.updateCurrentWeekDisplay(); // Add missing call
+        this.uiManager.renderScheduleGrid(this.scheduler, this.teacherModeActive); // Use this.uiManager
+        this.uiManager.updateProgress(); // Use this.uiManager
+        this.uiManager.clearHighlights(); // Use this.uiManager
+        this.uiManager.updateCurrentWeekDisplay(); // Use this.uiManager
     }
 
     setStartDate(event) {
@@ -345,7 +353,7 @@ class EventHandlerService {
             try {
                 // Show visual feedback that change is happening
                 startDateInput.classList.add('updating');
-                uiManager.showMessage('info', 'Updating schedule...');
+                this.uiManager.showMessage('info', 'Updating schedule...'); // Use this.uiManager
 
                 // Use setTimeout to allow the UI to update before processing
                 setTimeout(() => {
@@ -358,23 +366,24 @@ class EventHandlerService {
                     console.log("Parsed date object:", newStartDate.toDateString());
                     
                     // Set the new start date
-                    this.dataManager.setStartDate(newStartDate); // Use this.dataManager
+                    this.scheduleRepository.setStartDate(newStartDate); // Use scheduleRepository
                     
                     // Update UI (These should ideally be triggered by events later)
-                    uiManager.renderScheduleGrid(this.scheduler, this.teacherModeActive); // Pass args
-                    uiManager.updateProgress();
-                    uiManager.updateConstraintStatus(this.scheduler); // Use this.scheduler
-                    uiManager.clearHighlights(); // TODO: Remove direct render calls later
-                    uiManager.updateCurrentWeekDisplay();
+                    this.uiManager.renderScheduleGrid(this.scheduler, this.teacherModeActive); // Use this.uiManager
+                    this.uiManager.updateProgress(); // Use this.uiManager
+                    this.uiManager.updateConstraintStatus(this.scheduler); // Use this.uiManager
+                    this.uiManager.clearHighlights(); // Use this.uiManager
+                    this.uiManager.updateCurrentWeekDisplay(); // Use this.uiManager
                     
                     // Update date picker to show the Monday of the week
-                    const mondayDate = getFormattedDate(this.dataManager.dataStore.scheduleStartDate); // Use imported fn and dataStore
+                    // Access dataStore via scheduleRepository
+                    const mondayDate = getFormattedDate(this.scheduleRepository.dataStore.scheduleStartDate);
                     startDateInput.value = mondayDate;
                     
                     // Format date for display
                     const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-                    const displayDate = this.dataManager.dataStore.scheduleStartDate.toLocaleDateString(undefined, options); // Use dataStore
-                    uiManager.showMessage('success', `Viewing week of ${displayDate}`);
+                    const displayDate = this.scheduleRepository.dataStore.scheduleStartDate.toLocaleDateString(undefined, options);
+                    this.uiManager.showMessage('success', `Viewing week of ${displayDate}`); // Use this.uiManager
 
                     // Remove updating class
                     startDateInput.classList.remove('updating');
@@ -382,10 +391,10 @@ class EventHandlerService {
             } catch (error) {
                 console.error("Date parsing error:", error);
                 startDateInput.classList.remove('updating');
-                uiManager.showMessage('error', 'Invalid date format. Please try again.');
+                this.uiManager.showMessage('error', 'Invalid date format. Please try again.'); // Use this.uiManager
             }
         } else {
-            uiManager.showMessage('error', 'Please select a valid date');
+            this.uiManager.showMessage('error', 'Please select a valid date'); // Use this.uiManager
         }
     }
 
@@ -398,20 +407,20 @@ class EventHandlerService {
         
         if (this.teacherModeActive) {
             // Enable teacher mode UI
-            uiManager.showMessage('info', 'Teacher Mode active. Click on time slots to mark when you are unavailable.', 6000);
+            this.uiManager.showMessage('info', 'Teacher Mode active. Click on time slots to mark when you are unavailable.', 6000); // Use this.uiManager
             document.querySelectorAll('.grid-cell:not(.scheduled)').forEach(cell => {
                 cell.classList.add('teacher-mode-active');
             });
         } else {
             // Disable teacher mode UI
-            uiManager.showMessage('info', 'Teacher Mode disabled. Back to regular scheduling mode.', 4000);
+            this.uiManager.showMessage('info', 'Teacher Mode disabled. Back to regular scheduling mode.', 4000); // Use this.uiManager
             document.querySelectorAll('.grid-cell').forEach(cell => {
                 cell.classList.remove('teacher-mode-active');
             });
         }
         // Re-render grid to apply/remove visual styles consistently
         // TODO: Ideally, UIManager would handle adding/removing a class to a container element instead of full re-render
-        uiManager.renderScheduleGrid(this.scheduler, this.teacherModeActive); // Pass args
+        this.uiManager.renderScheduleGrid(this.scheduler, this.teacherModeActive); // Use this.uiManager
     }
 
     handleCellClick(e) {
@@ -424,7 +433,7 @@ class EventHandlerService {
             const period = cell.dataset.period;
             
             // Toggle the teacher unavailability for this period
-            const isNowUnavailable = this.dataManager.toggleTeacherUnavailability(dateStr, period); // Use this.dataManager
+            const isNowUnavailable = this.scheduleRepository.toggleTeacherUnavailability(dateStr, period); // Use scheduleRepository
             
             // Explicitly save to localStorage to ensure persistence
             if (window.saveTeacherUnavailabilityToLocalStorage) { // Keep global check for now
@@ -445,7 +454,7 @@ class EventHandlerService {
             const selectedClassElement = document.querySelector('.class-item.suggested'); // Renamed variable
             if (selectedClassElement) {
                 // highlightAvailableSlots was moved to uiManager
-                uiManager.highlightAvailableSlots(selectedClassElement.dataset.className, this.scheduler); // Use this.scheduler
+                this.uiManager.highlightAvailableSlots(selectedClassElement.dataset.className, this.scheduler); // Use this.uiManager
             }
         }
         // TODO: Add handling for regular cell clicks (e.g., showing class details) if needed here later
@@ -485,8 +494,11 @@ class EventHandlerService {
              if (this.analyticsController) this.analyticsController.showAnalyticsModal();
              else console.error("AnalyticsController not available");
         });
-        // What-If button listener is attached in AnalyticsController/HTML, but should call WhatIfController
-        // We might need to pass WhatIfController instance to AnalyticsController or use events.
+        // Attach listener for the What-If button (likely inside Analytics modal)
+        document.getElementById('show-what-if-btn')?.addEventListener('click', () => {
+            if (this.whatIfController) this.whatIfController.showWhatIfAnalysis();
+            else console.error("WhatIfController not available");
+        });
 
         // Teacher mode toggle calls method on this service
         const teacherModeToggle = document.getElementById('teacher-mode');

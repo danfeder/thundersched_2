@@ -2,12 +2,19 @@
 import { getDayFromDate } from './date-utils.js'; // Import date utility
 
 export class Scheduler { // Added export
-    constructor(dataManager) {
-        this.dataManager = dataManager;
+    /**
+     * @param {import('./repositories/schedule-repository.js').ScheduleRepository} scheduleRepository
+     * @param {import('./data.js').DataManager} dataManager - Temporarily needed for getConfig until ConfigManager exists
+     */
+    constructor(scheduleRepository, dataManager) {
+        if (!scheduleRepository) throw new Error("ScheduleRepository is required for Scheduler");
+        if (!dataManager) throw new Error("DataManager is temporarily required for Scheduler (for getConfig)"); // Added check
+        this.scheduleRepository = scheduleRepository;
+        this.dataManager = dataManager; // Keep for getConfig
     }
 
     isValidPlacement(className, dateStr, period) {
-        const schedule = this.dataManager.getSchedule();
+        const schedule = this.scheduleRepository.getSchedule(); // Use scheduleRepository
         
         // Check if the slot is already occupied
         if (schedule[dateStr] && schedule[dateStr][period]) {
@@ -15,7 +22,8 @@ export class Scheduler { // Added export
         }
 
         // Get class information to check specific conflicts
-        const classInfo = this.dataManager.classRepository.getClasses().find(c => c.name === className); // Use repository
+        // Access classRepository via scheduleRepository as it's injected there
+        const classInfo = this.scheduleRepository.classRepository.getClasses().find(c => c.name === className);
         if (classInfo) {
             // Get day of week from date - consistent with how data.js does it
             const [year, month, day] = dateStr.split('-').map(num => parseInt(num, 10));
@@ -33,7 +41,7 @@ export class Scheduler { // Added export
         // are still considered valid (though with confirmation required)
         // This allows teacher unavailable periods to show as green (available)
 
-        // Get current configuration values
+        // Get current configuration values - Use dataManager for this until ConfigManager exists
         const config = this.dataManager.getConfig();
 
         // Check if placing here would create too many consecutive classes
@@ -67,7 +75,7 @@ export class Scheduler { // Added export
     }
 
     countConsecutiveClasses(dateStr, newPeriod) {
-        const schedule = this.dataManager.getSchedule();
+        const schedule = this.scheduleRepository.getSchedule(); // Use scheduleRepository
         const newPeriodNum = Number(newPeriod);
         let consecutive = 0;
         
@@ -97,7 +105,7 @@ export class Scheduler { // Added export
     }
 
     countDailyClasses(dateStr) {
-        const schedule = this.dataManager.getSchedule();
+        const schedule = this.scheduleRepository.getSchedule(); // Use scheduleRepository
         let count = 0;
         
         if (!schedule[dateStr]) {
@@ -115,7 +123,7 @@ export class Scheduler { // Added export
 
     countWeeklyClasses() {
         // Get only the current week's schedule rather than all weeks
-        const currentWeek = this.dataManager.getCurrentWeekSchedule();
+        const currentWeek = this.scheduleRepository.getCurrentWeekSchedule(); // Use scheduleRepository
         let count = 0;
         
         Object.keys(currentWeek).forEach(dateStr => {
@@ -129,10 +137,11 @@ export class Scheduler { // Added export
 
     suggestAvailableSlots(className) {
         const availableSlots = [];
-        const weekDates = this.dataManager.getCurrentWeekDates();
+        const weekDates = this.scheduleRepository.getCurrentWeekDates(); // Use scheduleRepository
         
         weekDates.forEach(date => {
-            const dateStr = this.dataManager.getFormattedDate(date);
+            // Use DateUtils directly from the repository instance for consistency
+            const dateStr = this.scheduleRepository.dateUtils.getFormattedDate(date);
             
             for (let period = 1; period <= 8; period++) {
                 const validation = this.isValidPlacement(className, dateStr, period);
@@ -144,10 +153,10 @@ export class Scheduler { // Added export
         
         return availableSlots;
     }
-
-    suggestNextClass() {
-        const unscheduledClasses = this.dataManager.getUnscheduledClasses();
-        if (unscheduledClasses.length === 0) return null;
+suggestNextClass() {
+    const unscheduledClasses = this.scheduleRepository.getUnscheduledClasses(); // Use scheduleRepository
+    if (unscheduledClasses.length === 0) return null;
+    
         
         // Find the class with the most constraints
         let mostConstrainedClass = null;
@@ -169,7 +178,7 @@ export class Scheduler { // Added export
     }
     
     hasAnyClassesScheduled() {
-        const currentWeek = this.dataManager.getCurrentWeekSchedule();
+        const currentWeek = this.scheduleRepository.getCurrentWeekSchedule(); // Use scheduleRepository
         
         return Object.values(currentWeek).some(daySchedule => {
             return Object.values(daySchedule).some(className => !!className);
@@ -178,7 +187,7 @@ export class Scheduler { // Added export
     
     findInvalidPlacementsWithNewConstraints(newConfig) {
         const invalid = [];
-        const weekSchedule = this.dataManager.getCurrentWeekSchedule();
+        const weekSchedule = this.scheduleRepository.getCurrentWeekSchedule(); // Use scheduleRepository
         
         // Check consecutive classes against the provided config
         // Removed flawed comparison: if (newConfig.maxConsecutiveClasses < this.dataManager.config.maxConsecutiveClasses)

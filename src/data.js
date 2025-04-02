@@ -3,7 +3,8 @@ import { getFormattedDate, getMondayOfWeek, getWeekDates, getNextMonday, getDayF
 import { parseCSVData } from './csv-parser.js';
 import { PersistenceService } from './persistence-service.js';
 import { DataStore } from './data-store.js';
-import { ClassRepository } from './repositories/class-repository.js'; // Import ClassRepository
+import { ClassRepository } from './repositories/class-repository.js';
+import { ScheduleRepository } from './repositories/schedule-repository.js';
 
 export class DataManager {
     constructor(scheduler) {
@@ -13,18 +14,18 @@ export class DataManager {
         
         // Instantiate repositories, passing dependencies
         this.classRepository = new ClassRepository(this.dataStore, this.persistenceService);
-        // TODO: Instantiate ScheduleRepository, ConfigManager, SavedStateRepository here
+        // Instantiate ScheduleRepository (DateUtils are imported at module level)
+        this.scheduleRepository = new ScheduleRepository(this.dataStore, this.persistenceService, this.classRepository);
+
+        // TODO: Instantiate ConfigManager, SavedStateRepository here
         // In tests, these properties will be overridden with mocks after instantiation.
-        this.scheduleRepository = null; // Placeholder for ScheduleRepository instance
         this.configManager = null;      // Placeholder for ConfigManager instance
         this.savedStateRepository = null; // Placeholder for SavedStateRepository instance
 
         // Load initial state from persistence into the store
         this._loadAllFromPersistence();
 
-        // Ensure week 0 structure is populated if needed by DataManager logic
-        // DataStore constructor initializes the keys, but DataManager populates
-        this.initializeEmptyWeek(0);
+        // Initialization of week 0 is now handled within ScheduleRepository constructor/DataStore access
 
         // Delayed validation of existing schedule against constraints
         setTimeout(() => this.validateExistingScheduleAgainstConstraints(), 1000);
@@ -111,238 +112,12 @@ export class DataManager {
        return this.persistenceService.save('cooking-saved-class-collections', this.dataStore.savedClassCollections);
     }
 
-    // --- Date/Week Management (using DataStore) ---
-    setStartDate(date) {
-        this.dataStore.scheduleStartDate = date; // Setter handles finding Monday
-        this.dataStore.currentWeekOffset = 0; // Reset offset
-        this.initializeEmptyWeek(0); // Ensure week 0 structure exists
-    }
-    
-    initializeEmptyWeek(weekOffset) {
-        // Always create a new empty week schedule object.
-        // This ensures it acts as a reset when called by resetSchedule.
-        // The check for existing week is removed.
-        
-        const weekSchedule = {};
-        const weekDates = getWeekDates(this.dataStore.scheduleStartDate, weekOffset);
-        
-        weekDates.forEach(date => {
-            const dateStr = getFormattedDate(date); 
-            weekSchedule[dateStr] = {};
-            for (let period = 1; period <= 8; period++) {
-                weekSchedule[dateStr][period] = null;
-            }
-        });
-        
-        // Update the store directly for schedule
-        const currentWeeks = this.dataStore.scheduleWeeks;
-        currentWeeks[weekOffset] = weekSchedule;
-        this.dataStore.scheduleWeeks = currentWeeks; // Trigger setter if it has side effects
-
-        // Initialize teacher unavailability in the store
-        if (!this.dataStore.teacherUnavailability[weekOffset]) {
-             const currentUnavailability = this.dataStore.teacherUnavailability;
-             currentUnavailability[weekOffset] = {};
-             weekDates.forEach(date => {
-                 const dateStr = getFormattedDate(date); 
-                 currentUnavailability[weekOffset][dateStr] = {};
-             });
-             this.dataStore.teacherUnavailability = currentUnavailability; // Trigger setter
-        }
-        
-        return weekSchedule;
-    }
-    
-    getCurrentWeekSchedule() {
-        const offset = this.dataStore.currentWeekOffset;
-        // Ensure the week is initialized before returning
-        if (!this.dataStore.scheduleWeeks[offset]) {
-            this.initializeEmptyWeek(offset);
-        }
-        return this.dataStore.scheduleWeeks[offset];
-    }
-
-    getCurrentWeekDates() {
-        return getWeekDates(this.dataStore.scheduleStartDate, this.dataStore.currentWeekOffset); 
-    }
-    
-    changeWeek(direction) {
-        this.dataStore.currentWeekOffset += direction; // Setter handles initialization
-        return this.getCurrentWeekSchedule();
-    }
-
-    // --- Class Data Loading -> Delegated to ClassRepository ---
-    // Removed loadClassesFromCSV - Use classRepository.loadClassesFromCSV() instead
-
-    // --- Class Management -> Delegated to ClassRepository ---
-    // Removed getClasses, addClass, updateClass, deleteClass, isClassScheduled
-    // Use this.classRepository.getClasses(), this.classRepository.addClass(), etc. instead
-
-    // --- Schedule Access/Modification (using DataStore) ---
-    // These might move to a ScheduleRepository later
-    getSchedule() { // Gets current week's schedule
-        return this.getCurrentWeekSchedule();
-    }
-
-    scheduleClass(className, dateStr, period) {
-        const currentSchedule = this.getCurrentWeekSchedule(); // Gets schedule from store
-        if (currentSchedule && currentSchedule[dateStr]) {
-             // Directly modify the object obtained from the store (or clone then set)
-             currentSchedule[dateStr][period] = className;
-             // No save needed here, assumes save happens elsewhere (e.g., end of operation)
-        } else {
-            console.error(`Cannot schedule class: Schedule or date ${dateStr} not initialized for current week.`);
-        }
-    }
-
-    unscheduleClass(dateStr, period) {
-        const currentSchedule = this.getCurrentWeekSchedule(); // Gets schedule from store
-         if (currentSchedule && currentSchedule[dateStr]) {
-            currentSchedule[dateStr][period] = null;
-             // No save needed here
-        } else {
-             console.error(`Cannot unschedule class: Schedule or date ${dateStr} not initialized for current week.`);
-        }
-    }
-    
-    
-    resetSchedule() { // Resets current week
-        const offset = this.dataStore.currentWeekOffset;
-        // Re-initialize the specific week in the store
-        this.initializeEmptyWeek(offset);
-        // Optionally save
-        // this.persistenceService.save('cooking-class-schedule', this.dataStore.scheduleWeeks);
-    }
-    
-    resetAllSchedules() {
-        // Reset state properties in the store via setters
-        this.dataStore.scheduleWeeks = {};
-        this.dataStore.teacherUnavailability = {};
-        this.dataStore.currentWeekOffset = 0;
-        // Optionally reset start date? Let's keep it consistent with constructor for now
-        this.dataStore.scheduleStartDate = getNextMonday();
-        this.initializeEmptyWeek(0); // Re-initialize week 0 in the store
-        // Optionally save
-        // this.persistenceService.save('cooking-class-schedule', this.dataStore.scheduleWeeks);
-    }
-
-    getUnscheduledClasses() {
-        const scheduledClasses = new Set();
-        Object.values(this.dataStore.scheduleWeeks).forEach(weekSchedule => {
-            if (!weekSchedule) return;
-            Object.values(weekSchedule).forEach(daySchedule => {
-                 if (!daySchedule) return;
-                Object.values(daySchedule).forEach(className => {
-                    if (className) scheduledClasses.add(className);
-                });
-            });
-        });
-        // Use ClassRepository to get classes
-        return this.classRepository.getClasses().filter(classInfo => !scheduledClasses.has(classInfo.name));
-    }
-    
-    
-    getCurrentWeekScheduledClasses() {
-        const scheduledClasses = new Set();
-        const currentWeekSchedule = this.getCurrentWeekSchedule(); // Gets from store
-        if (!currentWeekSchedule) return [];
-        
-        Object.values(currentWeekSchedule).forEach(daySchedule => {
-             if (!daySchedule) return;
-            Object.values(daySchedule).forEach(className => {
-                if (className) scheduledClasses.add(className);
-            });
-        });
-        return Array.from(scheduledClasses);
-    }
-
-    // --- Conflict/Availability (using DataStore and ClassRepository) ---
-    hasConflict(className, dateStr, period) {
-        // Use ClassRepository to get class info
-        const classInfo = this.classRepository.getClasses().find(c => c.name === className);
-        if (!classInfo) return false;
-        
-        const [year, month, day] = dateStr.split('-').map(num => parseInt(num, 10));
-        const date = new Date(Date.UTC(year, month - 1, day)); 
-        const dayOfWeek = getDayFromDate(date); 
-        
-        if (dayOfWeek === 'Saturday' || dayOfWeek === 'Sunday') return true;
-        
-        if (classInfo.conflicts[dayOfWeek]?.includes(Number(period))) {
-            return true;
-        }
-        if (this.isTeacherUnavailable(dateStr, period)) { // Uses store via method call
-            return true;
-        }
-        return false;
-    }
-    
-
-    // --- Conflict/Availability (using DataStore and ClassRepository) ---
-    hasConflict(className, dateStr, period) {
-        // Use ClassRepository to get class info
-        const classInfo = this.classRepository.getClasses().find(c => c.name === className);
-        if (!classInfo) return false;
-        
-        const [year, month, day] = dateStr.split('-').map(num => parseInt(num, 10));
-        const date = new Date(Date.UTC(year, month - 1, day));
-        const dayOfWeek = getDayFromDate(date);
-        
-        if (dayOfWeek === 'Saturday' || dayOfWeek === 'Sunday') return true;
-        
-        if (classInfo.conflicts[dayOfWeek]?.includes(Number(period))) {
-            return true;
-        }
-        if (this.isTeacherUnavailable(dateStr, period)) { // Uses store via method call
-            return true;
-        }
-        return false;
-    }
-    
-    isTeacherUnavailable(dateStr, period) {
-        const [year, month, day] = dateStr.split('-').map(num => parseInt(num, 10));
-        const date = new Date(Date.UTC(year, month - 1, day));
-        
-        const monday = getMondayOfWeek(date);
-        const startMonday = getMondayOfWeek(this.dataStore.scheduleStartDate); // Use store value
-        
-        const diffTime = monday.getTime() - startMonday.getTime();
-        const diffDays = diffTime / (1000 * 60 * 60 * 24);
-        const weekOffset = Math.round(diffDays / 7);
-        
-        // Access store directly
-        return this.dataStore.teacherUnavailability[weekOffset]?.[dateStr]?.[period] === true;
-    }
-    
-    toggleTeacherUnavailability(dateStr, period) {
-        const [year, month, day] = dateStr.split('-').map(num => parseInt(num, 10));
-        const date = new Date(Date.UTC(year, month - 1, day));
-        
-        const monday = getMondayOfWeek(date);
-        const startMonday = getMondayOfWeek(this.dataStore.scheduleStartDate);
-        
-        const diffTime = monday.getTime() - startMonday.getTime();
-        const diffDays = diffTime / (1000 * 60 * 60 * 24);
-        const weekOffset = Math.round(diffDays / 7);
-        
-        // Get current state from store, modify, and set back
-        const currentUnavailability = { ...this.dataStore.teacherUnavailability }; // Clone top level
-        if (!currentUnavailability[weekOffset]) {
-            currentUnavailability[weekOffset] = {};
-        }
-        const weekData = currentUnavailability[weekOffset];
-        if (!weekData[dateStr]) {
-            weekData[dateStr] = {};
-        }
-        
-        const isCurrentlyUnavailable = weekData[dateStr][period] === true;
-        weekData[dateStr][period] = !isCurrentlyUnavailable;
-        
-        this.dataStore.teacherUnavailability = currentUnavailability; // Update store via setter
-        
-        return !isCurrentlyUnavailable;
-    }
-    
+    // --- Methods related to Schedule/Week/Teacher Unavailability moved to ScheduleRepository ---
+    // setStartDate, initializeEmptyWeek, getCurrentWeekSchedule, getCurrentWeekDates,
+    // changeWeek, getSchedule, scheduleClass, unscheduleClass, resetSchedule,
+    // resetAllSchedules, getUnscheduledClasses, getCurrentWeekScheduledClasses,
+    // hasConflict, isTeacherUnavailable, toggleTeacherUnavailability
+ 
     // --- Config Management (using DataStore) ---
     getConfig() {
         return this.dataStore.config;

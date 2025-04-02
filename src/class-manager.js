@@ -1,4 +1,5 @@
-import uiManager from './ui-manager.js'; // Import UIManager
+import { UIManager } from './ui-manager.js'; // Use named import
+// Note: This file will need refactoring to instantiate or receive a UIManager instance.
 
 // Class Manager functionality
 

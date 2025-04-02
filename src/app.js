@@ -1,5 +1,7 @@
 // Main application logic
-import uiManager from './ui-manager.js'; // Reverted to default import
+import { UIManager } from './ui-manager.js'; // Use named import
+// Note: This file likely needs further refactoring or removal,
+// as AppInitializer is now the entry point. UIManager needs instantiation.
 import { DataManager } from './data.js'; // Use named import
 import { Scheduler } from './scheduler.js'; // Use named import
 

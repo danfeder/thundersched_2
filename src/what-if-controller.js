@@ -5,11 +5,21 @@
 // import ConstraintSolverWrapper from './solver-wrapper.js'; 
 
 class WhatIfController {
-    constructor(dataManager, uiManager, solverWrapper, configController) {
-        this.dataManager = dataManager;
+    /**
+     * @param {import('./repositories/schedule-repository.js').ScheduleRepository} scheduleRepository
+     * @param {import('./ui-manager.js').UIManager} uiManager
+     * @param {import('./solver-wrapper.js').default} solverWrapper
+     * @param {import('./config-controller.js').default} configController
+     * @param {import('./data.js').DataManager} dataManager - Added back for getConfig
+     * @param {import('./repositories/class-repository.js').ClassRepository} classRepository - Added dependency
+     */
+    constructor(scheduleRepository, uiManager, solverWrapper, configController, dataManager, classRepository) {
+        this.scheduleRepository = scheduleRepository;
         this.uiManager = uiManager;
-        this.solverWrapper = solverWrapper; // Assuming ConstraintSolverWrapper instance is passed
-        this.configController = configController; // For showConfirmDialog utility
+        this.solverWrapper = solverWrapper;
+        this.configController = configController;
+        this.dataManager = dataManager;
+        this.classRepository = classRepository; // Store classRepository
         
         // Internal state for What-If analysis
         this.whatIfState = {
@@ -74,8 +84,8 @@ class WhatIfController {
         modal.style.display = 'block'; 
         
         // Start preloading the solver library in the background
-        if (!this.whatIfState.isLibraryLoaded) { 
-            this.whatIfState.isLibraryLoaded = true; 
+        if (!this.whatIfState.isLibraryLoaded) {
+            this.whatIfState.isLibraryLoaded = true;
             // Use the injected solverWrapper instance
             this.solverWrapper.initialize().then(() => {
                  console.log("Solver library preloaded successfully for What-If.");
@@ -83,6 +93,29 @@ class WhatIfController {
                 console.log('Solver preload failed, What-If will use fallback simulation:', error);
                 // No need to reset isLibraryLoaded, fallback will be used automatically
             });
+        }
+        
+        // Attach button listeners (ensure this happens only once or remove old ones first)
+        const simulateBtn = document.getElementById('what-if-simulate-btn');
+        const applyBtn = document.getElementById('what-if-apply-btn');
+        // Assuming cancel/close are handled globally or by UIManager
+
+        if (simulateBtn) {
+            // Remove potential old listener before adding new one
+            const newSimulateBtn = simulateBtn.cloneNode(true);
+            simulateBtn.parentNode.replaceChild(newSimulateBtn, simulateBtn);
+            newSimulateBtn.addEventListener('click', () => this.runWhatIfSimulation());
+        } else {
+            console.error("What-If Simulate button not found for listener attachment.");
+        }
+
+        if (applyBtn) {
+             // Remove potential old listener before adding new one
+            const newApplyBtn = applyBtn.cloneNode(true);
+            applyBtn.parentNode.replaceChild(newApplyBtn, applyBtn);
+            newApplyBtn.addEventListener('click', () => this.applyWhatIfResults());
+        } else {
+            console.error("What-If Apply button not found for listener attachment.");
         }
     }
 
@@ -170,20 +203,26 @@ class WhatIfController {
                 throw new Error('Minimum weekly classes cannot be greater than maximum');
             }
             
-            // Create a deep copy using this.dataManager
-            const scheduleCopy = JSON.parse(JSON.stringify(this.dataManager.scheduleWeeks));
+            // Log the data before stringifying
+            console.log("WhatIfController: Data before stringify:", this.scheduleRepository?.dataStore?.scheduleWeeks);
+            // Create a deep copy using scheduleRepository.dataStore
+            const scheduleCopy = JSON.parse(JSON.stringify(this.scheduleRepository.dataStore.scheduleWeeks));
             
             const timeoutMs = 10000;
             const timeoutPromise = new Promise((_, reject) => {
                 setTimeout(() => reject(new Error('Simulation timed out')), timeoutMs);
             });
             
-            // Run the simulation using this.solverWrapper and this.dataManager
+            // Run the simulation using this.solverWrapper and the correct repositories/data
+            console.log("WhatIfController: Checking repositories before solver call:"); // ADD LOG
+            console.log(" - this.scheduleRepository:", this.scheduleRepository); // ADD LOG
+            console.log(" - this.classRepository:", this.classRepository); // ADD LOG
             const simulationPromise = this.solverWrapper.simulateConstraintChanges(
-                scheduleCopy,
-                currentConstraints,
-                newConstraints,
-                this.dataManager
+                scheduleCopy,          // The copied schedule data
+                currentConstraints,    // Still needed by solver wrapper? (Marked as unused before)
+                newConstraints,        // The new constraints from UI
+                this.scheduleRepository, // Pass scheduleRepository
+                this.classRepository     // Pass classRepository
             );
             
             const simulation = await Promise.race([simulationPromise, timeoutPromise]);
@@ -379,14 +418,16 @@ class WhatIfController {
             
             invalidPlacements.forEach(placement => {
                 if (placement.weekOffset !== undefined) {
-                     this.dataManager.currentWeekOffset = placement.weekOffset;
-                     this.dataManager.unscheduleClass(placement.dateStr, placement.period);
+                     // Access dataStore via scheduleRepository to set offset temporarily
+                     this.scheduleRepository.dataStore.currentWeekOffset = placement.weekOffset;
+                     this.scheduleRepository.unscheduleClass(placement.dateStr, placement.period); // Use scheduleRepository
                 } else {
                      console.warn("Invalid placement data missing weekOffset:", placement);
                 }
             });
             
-            this.dataManager.currentWeekOffset = currentWeek;
+            // Restore original week offset via dataStore access
+            this.scheduleRepository.dataStore.currentWeekOffset = currentWeek;
         }
         
         // Use this.dataManager
