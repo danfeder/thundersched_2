@@ -292,9 +292,8 @@ export class UIManager { // Add export
                                 }
                                 classElement.classList.remove('hovering');
                             });
-                        } else {
-                             console.warn("Scheduler instance not available via EventHandlerService for click/hover highlights");
                         }
+                        // Removed stale console.warn here
                         
                         // Add double-click to unschedule
                         classElement.addEventListener('dblclick', () => {
@@ -341,9 +340,8 @@ export class UIManager { // Add export
         // Update constraint status indicators using internal method and passed scheduler
         if (scheduler) {
             this.updateConstraintStatus(scheduler);
-        } else {
-             console.warn("Scheduler instance not passed to renderScheduleGrid for updateConstraintStatus");
         }
+        // Removed stale console.warn here
     
             }
     
@@ -416,9 +414,8 @@ export class UIManager { // Add export
                     }
                     classElement.classList.remove('hovering');
                 });
-            } else {
-                 console.warn("Scheduler instance not available via EventHandlerService for click/hover highlights");
             }
+            // Removed stale console.warn here
             
             unscheduledClassesContainer.appendChild(classElement);
         });
@@ -643,7 +640,7 @@ export class UIManager { // Add export
             return;
         }
         
-        const config = this.dataManager.getConfig();
+        const config = this.dataManager.configManager.getConfig(); // Use ConfigManager
         const weeklyClasses = scheduler.countWeeklyClasses();
         
         const weekCountEl = document.getElementById('week-count');

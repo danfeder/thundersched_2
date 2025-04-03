@@ -1,5 +1,9 @@
 // Test Setup and Utilities
 import { jest } from '@jest/globals';
+import * as DateUtils from '../src/date-utils.js'; // Import real DateUtils
+// Import createMockConfigManager
+// Import createMockConfigManager - Already done above, but ensure it's used below.
+// Note: Recursive import like above isn't ideal, better to have mocks separate or ensure no circular deps. Assuming it works for now.
 
 // --- Mock DataStore ---
 // Creates a mock DataStore with jest functions for getters/setters
@@ -121,9 +125,16 @@ export const createMockClassRepository = (mockDataStore, mockPersistenceService)
 });
 
 // --- Mock ScheduleRepository ---
-export const createMockScheduleRepository = (mockDataStore, mockPersistenceService) => ({
+// Now accepts classRepository as well
+export const createMockScheduleRepository = (mockDataStore, mockPersistenceService, mockClassRepository) => ({
     dataStore: mockDataStore,
     persistenceService: mockPersistenceService,
+    classRepository: mockClassRepository, // Assign ClassRepository
+    dateUtils: DateUtils, // Assign real DateUtils
+    getSchedule: jest.fn(() => mockDataStore.scheduleWeeks[mockDataStore.currentWeekOffset] || {}), // Add basic mock for getSchedule
+    getCurrentWeekSchedule: jest.fn(() => mockDataStore.scheduleWeeks[mockDataStore.currentWeekOffset] || {}), // Add basic mock
+    getCurrentWeekDates: jest.fn().mockReturnValue([]), // Add basic mock
+    getUnscheduledClasses: jest.fn().mockReturnValue([]), // Add basic mock
     scheduleClass: jest.fn(),
     unscheduleClass: jest.fn(),
     hasConflict: jest.fn().mockReturnValue(false), // Default to no conflict
@@ -132,8 +143,23 @@ export const createMockScheduleRepository = (mockDataStore, mockPersistenceServi
     resetAllSchedules: jest.fn(),
     getAllScheduledClassNames: jest.fn().mockReturnValue(new Set()), // Default to empty set
     getCurrentWeekScheduledClasses: jest.fn().mockReturnValue([]), // Default to empty array
-    toggleTeacherUnavailability: jest.fn(),
-    isTeacherUnavailable: jest.fn().mockReturnValue(false), // Default to available
+    // Make toggle modify the mockDataStore state
+    toggleTeacherUnavailability: jest.fn((dateStr, period) => {
+        const offset = mockDataStore.currentWeekOffset;
+        const currentUnav = { ...mockDataStore._state.teacherUnavailability }; // Use internal state
+        if (!currentUnav[offset]) currentUnav[offset] = {};
+        if (!currentUnav[offset][dateStr]) currentUnav[offset][dateStr] = {};
+        const currentVal = !!currentUnav[offset][dateStr]?.[period];
+        currentUnav[offset][dateStr][period] = !currentVal;
+        mockDataStore.teacherUnavailability = currentUnav; // Use setter to update store
+        return !currentVal; // Return the new state
+    }),
+     // Make isTeacherUnavailable read from mockDataStore state
+    isTeacherUnavailable: jest.fn((dateStr, period) => {
+        const offset = mockDataStore.currentWeekOffset;
+        // Read directly from internal state for the mock check
+        return !!mockDataStore._state.teacherUnavailability[offset]?.[dateStr]?.[period];
+    }),
     loadScheduleState: jest.fn(), // Used when loading a saved schedule
     getCurrentWeekScheduleData: jest.fn().mockReturnValue({}), // Used when saving schedule
     getCurrentTeacherUnavailability: jest.fn().mockReturnValue({}), // Used when saving schedule
@@ -141,24 +167,31 @@ export const createMockScheduleRepository = (mockDataStore, mockPersistenceServi
 });
 
 // --- Mock ConfigManager ---
-export const createMockConfigManager = (mockDataStore, mockPersistenceService) => ({
-    dataStore: mockDataStore,
-    persistenceService: mockPersistenceService,
-    getConfig: jest.fn(() => mockDataStore.config), // Return config from mock store
-    updateConfig: jest.fn((newConfig) => {
-        mockDataStore.config = newConfig; // Update mock store
-        // Assume save is called internally or handled separately
-    }),
-    loadConfig: jest.fn(() => {
-        // Mock loading from persistence into store if needed
-        const data = mockPersistenceService.load('cooking-class-config');
-        if (data) mockDataStore.config = data;
-    }),
-    saveConfig: jest.fn(() => {
-        // Mock saving from store to persistence
-        mockPersistenceService.save('cooking-class-config', mockDataStore.config);
-    }),
-});
+export const createMockConfigManager = (mockDataStore, mockPersistenceService) => {
+    // Define the mock object first so its methods can reference each other
+    const mock = {
+        dataStore: mockDataStore,
+        persistenceService: mockPersistenceService,
+        getConfig: jest.fn(() => mockDataStore.config),
+        updateConfig: jest.fn((newConfig) => {
+            // Mimic DataStore's merge behavior
+            mockDataStore.config = newConfig; // Call mock setter
+            // Call the saveConfig mock on this object
+            mock.saveConfig();
+        }),
+        loadConfig: jest.fn(() => {
+            const data = mockPersistenceService.load('cooking-class-config');
+            if (data) {
+                mockDataStore.config = data; // Call mock setter
+            }
+        }),
+        saveConfig: jest.fn(() => {
+            mockPersistenceService.save('cooking-class-config', mockDataStore.config);
+        }),
+    };
+    return mock;
+};
+// Removed duplicated/erroneous lines from previous attempt
 
 // --- Mock SavedStateRepository ---
 export const createMockSavedStateRepository = (mockDataStore, mockPersistenceService) => ({
@@ -187,24 +220,24 @@ export const createMockSavedStateRepository = (mockDataStore, mockPersistenceSer
 export const createMockDataManager = (
     mockDataStoreInstance = createMockDataStore(),
     mockPersistenceServiceInstance = createMockPersistenceService(),
-    mockClassRepositoryInstance = createMockClassRepository(mockDataStoreInstance, mockPersistenceServiceInstance)
+    mockClassRepositoryInstance = createMockClassRepository(mockDataStoreInstance, mockPersistenceServiceInstance),
+    // Add ConfigManager dependency
+    mockConfigManagerInstance = createMockConfigManager(mockDataStoreInstance, mockPersistenceServiceInstance)
 ) => {
     const mockDataManager = {
         // Inject mock dependencies
         dataStore: mockDataStoreInstance,
         persistenceService: mockPersistenceServiceInstance,
         classRepository: mockClassRepositoryInstance,
+        configManager: mockConfigManagerInstance, // Add ConfigManager instance
         scheduler: { // Basic mock scheduler if needed by DataManager methods
             findInvalidPlacementsWithNewConstraints: jest.fn().mockReturnValue([]),
-        }, 
+        },
 
         // --- Mocked Facade Methods ---
         // Persistence related (delegated or direct)
         _loadAllFromPersistence: jest.fn(), // Can be spied on
-        loadConfigFromLocalStorage: jest.fn(() => {
-             const data = mockPersistenceServiceInstance.load('cooking-class-config');
-             if (data) mockDataStoreInstance.config = data;
-        }),
+        // loadConfigFromLocalStorage: jest.fn(() => { ... }), // REMOVED - Handled by ConfigManager
         loadSavedSchedulesFromLocalStorage: jest.fn(() => {
              const data = mockPersistenceServiceInstance.load('cooking-saved-schedules');
              if (data) mockDataStoreInstance.savedSchedules = data;
@@ -213,7 +246,7 @@ export const createMockDataManager = (
              const data = mockPersistenceServiceInstance.load('cooking-saved-class-collections');
              if (data) mockDataStoreInstance.savedClassCollections = data;
         }),
-        saveConfigToLocalStorage: jest.fn(() => mockPersistenceServiceInstance.save('cooking-class-config', mockDataStoreInstance.config)),
+        // saveConfigToLocalStorage: jest.fn(() => ...), // REMOVED - Handled by ConfigManager
         saveSavedSchedulesToLocalStorage: jest.fn(() => mockPersistenceServiceInstance.save('cooking-saved-schedules', mockDataStoreInstance.savedSchedules)),
         saveSavedClassCollectionsToLocalStorage: jest.fn(() => mockPersistenceServiceInstance.save('cooking-saved-class-collections', mockDataStoreInstance.savedClassCollections)),
 
@@ -323,14 +356,15 @@ export const createMockDataManager = (
             return !currentVal;
         }),
 
-        // Config Management (interact with store/persistence)
-        getConfig: jest.fn(() => mockDataStoreInstance.config),
-        updateConfig: jest.fn((newConfig) => {
-            mockDataStoreInstance.config = newConfig; // Use setter (merges)
-            mockDataManager.saveConfigToLocalStorage(); // Call mock save
-            return mockDataStoreInstance.config;
-        }),
-        validateExistingScheduleAgainstConstraints: jest.fn(), // Can be spied on
+        // Config Management methods are now removed as they should be accessed via configManager
+        // getConfig: jest.fn(() => mockDataStoreInstance.config), // REMOVED
+        // updateConfig: jest.fn((newConfig) => { ... }), // REMOVED
+        
+        validateExistingScheduleAgainstConstraints: jest.fn(), // Can be spied on - Uses getConfig internally, ensure mockDataManager.configManager is used if needed
+        
+        // Add back mocks needed by ui-interactions tests temporarily
+        getScheduledClassCount: jest.fn().mockReturnValue(0), // Default mock
+        getTotalClassCount: jest.fn().mockReturnValue(0), // Default mock
 
         // Saved Schedules (interact with store/persistence)
         addSavedSchedule: jest.fn((schedule) => {

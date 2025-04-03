@@ -68,7 +68,7 @@ class AnalyticsController {
             // Create copies of data to prevent accidental modification
             // Access scheduleWeeks via scheduleRepository.dataStore
             const scheduleCopy = JSON.parse(JSON.stringify(this.scheduleRepository.dataStore.scheduleWeeks));
-            const constraintsCopy = JSON.parse(JSON.stringify(this.dataManager.getConfig())); // getConfig is correct
+            const constraintsCopy = JSON.parse(JSON.stringify(this.dataManager.configManager.getConfig())); // Use ConfigManager
             
             // Get current metrics using ScheduleAnalytics
             const metrics = ScheduleAnalytics.calculateMetrics(scheduleCopy, constraintsCopy);
@@ -142,7 +142,7 @@ class AnalyticsController {
         try {
             // Create COPIES of data to prevent accidental modification
             const scheduleCopy = JSON.parse(JSON.stringify(this.scheduleRepository.dataStore.scheduleWeeks)); // Use scheduleRepository.dataStore
-            const constraintsCopy = JSON.parse(JSON.stringify(this.dataManager.getConfig())); // getConfig is correct
+            const constraintsCopy = JSON.parse(JSON.stringify(this.dataManager.configManager.getConfig())); // Use ConfigManager
             const classList = this.classRepository.getClasses(); // Use injected classRepository
             
             // Calculate metrics using ScheduleAnalytics

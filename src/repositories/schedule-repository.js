@@ -20,7 +20,7 @@ export class ScheduleRepository {
         // Initialize state or ensure it's loaded/handled by DataStore accessors
         // Example: Ensure initial week exists if not handled by DataStore's setter logic
         if (!this.dataStore.scheduleWeeks[this.dataStore.currentWeekOffset]) {
-             this._initializeEmptyWeek(this.dataStore.currentWeekOffset);
+             this.initializeEmptyWeek(this.dataStore.currentWeekOffset); // Corrected typo: removed underscore
         }
     }
 
@@ -50,31 +50,38 @@ export class ScheduleRepository {
             }
         });
         
-        // Update the store directly for schedule
-        const currentWeeks = this.dataStore.scheduleWeeks;
-        currentWeeks[weekOffset] = weekSchedule;
-        this.dataStore.scheduleWeeks = currentWeeks; // Trigger setter if it has side effects
+        // Create a *new* scheduleWeeks object to ensure reference change for DataStore setter
+        const newScheduleWeeks = {
+            ...this.dataStore.scheduleWeeks, // Copy existing weeks
+            [weekOffset]: weekSchedule       // Add/overwrite the target week
+        };
+        this.dataStore.scheduleWeeks = newScheduleWeeks; // Assign the new object via setter
 
-        // Initialize teacher unavailability in the store
+        // Initialize teacher unavailability similarly, ensuring a new object reference
         if (!this.dataStore.teacherUnavailability[weekOffset]) {
-             const currentUnavailability = this.dataStore.teacherUnavailability;
-             currentUnavailability[weekOffset] = {};
+             const newTeacherUnavailability = {
+                 ...this.dataStore.teacherUnavailability, // Copy existing weeks
+                 [weekOffset]: {} // Initialize the new week offset
+             };
+             // Initialize days within the new week object
              weekDates.forEach(date => {
                  const dateStr = this.dateUtils.getFormattedDate(date);
-                 currentUnavailability[weekOffset][dateStr] = {};
+                 newTeacherUnavailability[weekOffset][dateStr] = {};
              });
-             this.dataStore.teacherUnavailability = currentUnavailability; // Trigger setter
+             this.dataStore.teacherUnavailability = newTeacherUnavailability; // Assign the new object via setter
         }
         
-        return weekSchedule;
+        return weekSchedule; // Return the structure for the specific week initialized
     }
     
     getCurrentWeekSchedule() {
         const offset = this.dataStore.currentWeekOffset;
         // Ensure the week is initialized before returning
         if (!this.dataStore.scheduleWeeks[offset]) {
-            this.initializeEmptyWeek(offset);
+            this.initializeEmptyWeek(offset); // This ensures the week exists in the store
         }
+        // Directly return the potentially initialized week data from the store
+        // Removed previous logging and intermediate variable
         return this.dataStore.scheduleWeeks[offset];
     }
 
@@ -95,7 +102,8 @@ export class ScheduleRepository {
 
     scheduleClass(className, dateStr, period) {
         const currentSchedule = this.getCurrentWeekSchedule(); // Gets schedule from store
-        if (currentSchedule && currentSchedule[dateStr]) {
+        // Check more robustly if the day object exists for the given date string
+        if (currentSchedule && typeof currentSchedule[dateStr] === 'object' && currentSchedule[dateStr] !== null) {
              // Directly modify the object obtained from the store
              currentSchedule[dateStr][period] = className;
              // Note: Persistence is not handled here. Assumed to be handled elsewhere (e.g., SaveLoadController)

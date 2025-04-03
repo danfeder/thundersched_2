@@ -12,14 +12,16 @@ class WhatIfController {
      * @param {import('./config-controller.js').default} configController
      * @param {import('./data.js').DataManager} dataManager - Added back for getConfig
      * @param {import('./repositories/class-repository.js').ClassRepository} classRepository - Added dependency
+     * @param {import('./scheduler.js').Scheduler} scheduler - Added dependency
      */
-    constructor(scheduleRepository, uiManager, solverWrapper, configController, dataManager, classRepository) {
+    constructor(scheduleRepository, uiManager, solverWrapper, configController, dataManager, classRepository, scheduler) { // Added scheduler
         this.scheduleRepository = scheduleRepository;
         this.uiManager = uiManager;
         this.solverWrapper = solverWrapper;
         this.configController = configController;
         this.dataManager = dataManager;
-        this.classRepository = classRepository; // Store classRepository
+        this.classRepository = classRepository;
+        this.scheduler = scheduler; // Store scheduler instance
         
         // Internal state for What-If analysis
         this.whatIfState = {
@@ -48,7 +50,7 @@ class WhatIfController {
         }
         
         // Reset the form to current constraint values
-        const currentConstraints = this.dataManager.getConfig(); 
+        const currentConstraints = this.dataManager.configManager.getConfig(); // Use ConfigManager
         
         const consecutiveInput = document.getElementById('what-if-consecutive');
         const consecutiveValue = document.getElementById('what-if-consecutive-value');
@@ -185,8 +187,8 @@ class WhatIfController {
             resultContainer.style.display = 'none';
             if (actionContainer) actionContainer.style.display = 'none';
             
-            // Get current and new constraints using this.dataManager
-            const currentConstraints = this.dataManager.getConfig();
+            // Get current and new constraints using ConfigManager via dataManager
+            const currentConstraints = this.dataManager.configManager.getConfig(); // Use ConfigManager
             const consecutiveInput = document.getElementById('what-if-consecutive');
             const dailyInput = document.getElementById('what-if-daily');
             const weeklyMinInput = document.getElementById('what-if-weekly-min');
@@ -265,7 +267,11 @@ class WhatIfController {
 
         // --- Show Source & Status Message ---
         let sourceMessage = '';
-        if (simulation.source && simulation.source !== 'solver') {
+        // Only show fallback note if a TRUE fallback occurred (not just solver infeasible + basic analysis)
+        const isTrueFallback = simulation.source &&
+                               simulation.source !== 'solver' &&
+                               simulation.source !== 'solver_infeasible_fallback_analysis';
+        if (isTrueFallback) {
             let fallbackReason = 'an unknown issue';
             if (simulation.source.includes('fallback_init_error')) fallbackReason = 'solver initialization failed';
             else if (simulation.source.includes('fallback_solver_missing')) fallbackReason = 'solver was missing after initialization';
@@ -281,11 +287,20 @@ class WhatIfController {
         if (simulation.feasible) {
             statusMessage = `<div class="status-success">✓ Schedule appears to be feasible with the new constraints</div>`;
         } else {
+            // Infeasible case: Determine primary message based on source
             if (simulation.source === 'solver_infeasible_fallback_analysis') {
-                 statusMessage = `<div class="status-error">✗ Solver determined the schedule is <strong>infeasible</strong> with these constraints.</div>` +
-                                 `<div class="status-info"><i>Showing ${simulation.invalidPlacements?.length ?? 0} potential conflicts found by basic analysis:</i></div>`;
+                 // Solver definitively found infeasibility
+                 statusMessage = `<div class="status-error">✗ Solver determined the schedule is <strong>infeasible</strong> with these constraints.</div>`;
+            } else if (simulation.source && (simulation.source.includes('fallback') || simulation.source.includes('basicSimulation'))) {
+                 // Fallback simulation indicated infeasibility
+                 statusMessage = `<div class="status-warning">⚠ Fallback analysis indicates these constraints would cause placement conflicts.</div>`;
             } else {
-                 statusMessage = `<div class="status-warning">⚠ These constraints would cause ${simulation.invalidPlacements?.length ?? 0} placement conflicts (based on fallback analysis)</div>`;
+                 // Unknown source for infeasibility
+                 statusMessage = `<div class="status-error">✗ Schedule appears to be <strong>infeasible</strong> with these constraints (source unknown).</div>`;
+            }
+            // Always add note about basic analysis conflicts if they exist (even if solver found infeasibility)
+            if (simulation.invalidPlacements && simulation.invalidPlacements.length > 0) {
+                 statusMessage += `<div class="status-info"><i>Showing ${simulation.invalidPlacements.length} potential conflicts found by basic analysis:</i></div>`;
             }
         }
         
@@ -360,7 +375,7 @@ class WhatIfController {
         const weeklyMaxInput = document.getElementById('what-if-weekly-max');
         
         // Use current config as fallback if inputs are missing
-        const currentConfig = this.dataManager.getConfig();
+        const currentConfig = this.dataManager.configManager.getConfig(); // Use ConfigManager
         const newConstraints = {
             maxConsecutiveClasses: parseInt(consecutiveInput?.value ?? currentConfig.maxConsecutiveClasses),
             maxClassesPerDay: parseInt(dailyInput?.value ?? currentConfig.maxClassesPerDay),
@@ -370,8 +385,11 @@ class WhatIfController {
         
         // If the last simulation showed invalid placements, ask for confirmation
         // Use this.whatIfState
-        const invalidPlacements = this.whatIfState.lastSimulation?.invalidPlacements || [];
-        if (invalidPlacements.length > 0) {
+        const lastSim = this.whatIfState.lastSimulation;
+        const invalidPlacements = lastSim?.invalidPlacements || [];
+        
+        // Only show confirmation if the last run simulation was INFEASIBLE *and* had invalid placements identified
+        if (lastSim && !lastSim.feasible && invalidPlacements.length > 0) {
             // Build details HTML for the confirmation dialog
             let detailsHtml = `<p>The following ${invalidPlacements.length} placements will be removed:</p><ul>`;
             invalidPlacements.slice(0, 5).forEach(p => {
@@ -386,6 +404,10 @@ class WhatIfController {
             });
             if (invalidPlacements.length > 5) detailsHtml += `<li>...and ${invalidPlacements.length - 5} more</li>`;
             detailsHtml += '</ul>';
+
+            // Hide the What-If modal *before* showing the confirmation dialog
+            const whatIfModal = document.getElementById('what-if-modal');
+            if (whatIfModal) whatIfModal.style.display = 'none';
             
             // Use the ConfigController's dialog utility via this.configController
             this.configController.showConfirmDialog({
@@ -412,26 +434,26 @@ class WhatIfController {
 
     // Private method to apply changes (with or without removals)
     applyConstraintChangesWithRemovals(newConstraints, invalidPlacements) {
-        // Use this.dataManager
+        // Use this.scheduleRepository for schedule state
         if (invalidPlacements && invalidPlacements.length > 0) {
-            const currentWeek = this.dataManager.currentWeekOffset;
+            const currentWeek = this.scheduleRepository.dataStore.currentWeekOffset; // Use scheduleRepository
             
             invalidPlacements.forEach(placement => {
                 if (placement.weekOffset !== undefined) {
-                     // Access dataStore via scheduleRepository to set offset temporarily
-                     this.scheduleRepository.dataStore.currentWeekOffset = placement.weekOffset;
+                     // Access dataStore via scheduleRepository to set offset temporarily - ensure it's a number
+                     this.scheduleRepository.dataStore.currentWeekOffset = Number(placement.weekOffset);
                      this.scheduleRepository.unscheduleClass(placement.dateStr, placement.period); // Use scheduleRepository
                 } else {
                      console.warn("Invalid placement data missing weekOffset:", placement);
                 }
             });
-            
-            // Restore original week offset via dataStore access
-            this.scheduleRepository.dataStore.currentWeekOffset = currentWeek;
+            // Restore original week offset via dataStore access - ensure it's a number
+            this.scheduleRepository.dataStore.currentWeekOffset = Number(currentWeek);
         }
         
-        // Use this.dataManager
-        this.dataManager.updateConfig(newConstraints);
+        
+        // Use ConfigManager via dataManager
+        this.dataManager.configManager.updateConfig(newConstraints); // Use ConfigManager
         
         const modal = document.getElementById('what-if-modal');
         if (modal) modal.style.display = 'none'; // UIManager hide later?
@@ -439,10 +461,10 @@ class WhatIfController {
         // Use this.uiManager and this.scheduler
         // TODO: Replace direct calls with event emissions
         // Pass scheduler, assume teacherModeActive is false after applying What-If
-        this.uiManager.renderScheduleGrid(this.scheduler, false);
-        this.uiManager.renderUnscheduledClasses(); // No args needed
-        this.uiManager.updateProgress();
-        this.uiManager.updateConstraintStatus(this.scheduler);
+        this.uiManager.renderScheduleGrid(this.scheduler, false); // Already passing scheduler
+        this.uiManager.renderUnscheduledClasses(this.scheduler); // Pass scheduler instance
+        this.uiManager.updateProgress(); // Doesn't require scheduler
+        this.uiManager.updateConstraintStatus(this.scheduler); // Already passing scheduler
         
         // TODO: Replace direct DOM check with event or controller interaction
         // Need access to analyticsController instance if we want to update it here

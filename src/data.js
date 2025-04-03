@@ -5,6 +5,7 @@ import { PersistenceService } from './persistence-service.js';
 import { DataStore } from './data-store.js';
 import { ClassRepository } from './repositories/class-repository.js';
 import { ScheduleRepository } from './repositories/schedule-repository.js';
+import { ConfigManager } from './repositories/config-manager.js'; // Import ConfigManager
 
 export class DataManager {
     constructor(scheduler) {
@@ -17,9 +18,9 @@ export class DataManager {
         // Instantiate ScheduleRepository (DateUtils are imported at module level)
         this.scheduleRepository = new ScheduleRepository(this.dataStore, this.persistenceService, this.classRepository);
 
-        // TODO: Instantiate ConfigManager, SavedStateRepository here
-        // In tests, these properties will be overridden with mocks after instantiation.
-        this.configManager = null;      // Placeholder for ConfigManager instance
+        // Instantiate ConfigManager
+        this.configManager = new ConfigManager(this.dataStore, this.persistenceService);
+        // TODO: Instantiate SavedStateRepository here
         this.savedStateRepository = null; // Placeholder for SavedStateRepository instance
 
         // Load initial state from persistence into the store
@@ -46,10 +47,11 @@ export class DataManager {
     // loadClassesFromLocalStorage is now handled by ClassRepository constructor/method
     
     loadConfigFromLocalStorage() {
-        const storedConfig = this.persistenceService.load('cooking-class-config');
-        if (storedConfig) {
-            this.dataStore.config = storedConfig; // Update store (merges in setter)
-            console.log('Loaded configuration from storage:', this.dataStore.config);
+        // Delegate to ConfigManager
+        if (this.configManager) {
+            this.configManager.loadConfig();
+        } else {
+            console.error("DataManager: ConfigManager not initialized during loadConfigFromLocalStorage call.");
         }
     }
 
@@ -101,7 +103,13 @@ export class DataManager {
     }
 
     saveConfigToLocalStorage() {
-        this.persistenceService.save('cooking-class-config', this.dataStore.config);
+        // Delegate to ConfigManager
+        if (this.configManager) {
+            return this.configManager.saveConfig();
+        } else {
+            console.error("DataManager: ConfigManager not initialized during saveConfigToLocalStorage call.");
+            return false; // Indicate failure
+        }
     }
 
     saveSavedSchedulesToLocalStorage() {
@@ -118,15 +126,27 @@ export class DataManager {
     // resetAllSchedules, getUnscheduledClasses, getCurrentWeekScheduledClasses,
     // hasConflict, isTeacherUnavailable, toggleTeacherUnavailability
  
-    // --- Config Management (using DataStore) ---
+    // --- Config Management (Delegated) ---
     getConfig() {
-        return this.dataStore.config;
+        // Delegate to ConfigManager
+        if (this.configManager) {
+            return this.configManager.getConfig();
+        } else {
+             console.error("DataManager: ConfigManager not initialized during getConfig call.");
+             // Return default or empty object to prevent downstream errors? Or throw?
+             // Returning default for now.
+             return { maxConsecutiveClasses: 2, maxClassesPerDay: 4, minClassesPerWeek: 12, maxClassesPerWeek: 16 };
+        }
     }
     
     updateConfig(newConfig) {
-        this.dataStore.config = newConfig; // Use setter (merges)
-        this.saveConfigToLocalStorage(); // Persist change
-        return this.dataStore.config;
+        // Delegate to ConfigManager
+        if (this.configManager) {
+            return this.configManager.updateConfig(newConfig);
+        } else {
+             console.error("DataManager: ConfigManager not initialized during updateConfig call.");
+             return this.getConfig(); // Return current (likely default) config
+        }
     }
     
     validateExistingScheduleAgainstConstraints() {

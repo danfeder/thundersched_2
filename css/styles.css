@@ -412,6 +412,15 @@ header {
     min-height: 200px; /* Ensure minimum height for small content */
 }
 
+/* Confirmation Dialog Specific Styles */
+#confirm-dialog .modal-content { /* Target content within confirm dialog */
+     max-width: 500px; /* Make confirm dialog potentially smaller */
+}
+#confirm-dialog {
+    z-index: 1001 !important; /* Ensure it's above other standard modals */
+}
+
+
 /* Class Manager Modal */
 .class-manager-content {
     max-width: 900px;

@@ -41,8 +41,8 @@ export class Scheduler { // Added export
         // are still considered valid (though with confirmation required)
         // This allows teacher unavailable periods to show as green (available)
 
-        // Get current configuration values - Use dataManager for this until ConfigManager exists
-        const config = this.dataManager.getConfig();
+        // Get current configuration values - Use ConfigManager via DataManager
+        const config = this.dataManager.configManager.getConfig(); // Use ConfigManager
 
         // Check if placing here would create too many consecutive classes
         const consecutiveClasses = this.countConsecutiveClasses(dateStr, period);

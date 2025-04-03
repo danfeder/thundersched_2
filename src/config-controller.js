@@ -23,7 +23,7 @@ class ConfigController {
             console.error("Config modal element not found!");
             return;
         }
-        const config = this.dataManager.getConfig();
+        const config = this.dataManager.configManager.getConfig(); // Use ConfigManager
         const hasExistingSchedule = this.scheduler.hasAnyClassesScheduled();
         
         // Populate form with current values
@@ -78,8 +78,8 @@ class ConfigController {
         }
         
         // Check if any constraints are being tightened
-        const currentConfig = this.dataManager.getConfig();
-        const isTightening = 
+        const currentConfig = this.dataManager.configManager.getConfig(); // Use ConfigManager
+        const isTightening =
             newConfig.maxConsecutiveClasses < currentConfig.maxConsecutiveClasses ||
             newConfig.maxClassesPerDay < currentConfig.maxClassesPerDay ||
             newConfig.maxClassesPerWeek < currentConfig.maxClassesPerWeek;
@@ -118,8 +118,8 @@ class ConfigController {
                                     this.scheduleRepository.unscheduleClass(p.dateStr, p.period); // Use scheduleRepository
                                 });
                                 
-                                // Update config
-                                this.dataManager.updateConfig(newConfig);
+                                // Update config via ConfigManager
+                                this.dataManager.configManager.updateConfig(newConfig);
                                 document.getElementById('config-modal').style.display = 'none'; // UIManager hide later
                                 
                                 // Explicitly save schedule to localStorage (temporary global call)
@@ -148,10 +148,10 @@ class ConfigController {
                 return; // Stop processing here, wait for dialog action
             }
         }
-        
         // No conflicts or user chose to proceed without removing placements
-        this.dataManager.updateConfig(newConfig);
+        this.dataManager.configManager.updateConfig(newConfig); // Use ConfigManager
         document.getElementById('config-modal').style.display = 'none'; // UIManager hide later
+        
         
         
         // Refresh UI (Ideally emit events later)

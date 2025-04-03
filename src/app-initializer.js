@@ -35,8 +35,8 @@ export class AppInitializer { // Add export
         this.saveLoadController = dependencies.saveLoadController || new SaveLoadController(this.dataManager, this.scheduler, this.uiManager, this.configController);
         // AnalyticsController needs scheduleRepo, classRepo, uiManager, AND dataManager (for getConfig)
         this.analyticsController = dependencies.analyticsController || new AnalyticsController(scheduleRepository, classRepository, this.uiManager, this.dataManager);
-        // WhatIfController needs scheduleRepo, uiManager, solverWrapper, configController, dataManager, AND classRepository
-        this.whatIfController = dependencies.whatIfController || new WhatIfController(scheduleRepository, this.uiManager, this.solverWrapper, this.configController, this.dataManager, classRepository);
+        // WhatIfController needs scheduleRepo, uiManager, solverWrapper, configController, dataManager, classRepository, AND scheduler
+        this.whatIfController = dependencies.whatIfController || new WhatIfController(scheduleRepository, this.uiManager, this.solverWrapper, this.configController, this.dataManager, classRepository, this.scheduler); // Added scheduler
         // Instantiate EventHandlerService last, ensuring correct argument order
         this.eventHandlerService = dependencies.eventHandlerService || new EventHandlerService(
              scheduleRepository,     // 1st: scheduleRepository

@@ -36,10 +36,10 @@
     *   [x] Introduce `DataStore`.
     *   [-] Extract Repositories:
         *   [x] `ClassRepository` created and used.
-        *   [ ] `ScheduleRepository` not created.
-        *   [ ] `ConfigManager` not created.
+        *   [x] `ScheduleRepository` created and used.
+        *   [x] `ConfigManager` created and used.
         *   [ ] `SavedStateRepository` not created.
-    *   [ ] Refactor Dependents: Ongoing.
+    *   [x] Refactor Dependents: Completed for ClassRepository, ScheduleRepository, and ConfigManager.
 *   [ ] **Refactoring `src/class-manager.js` (Target 3)**
 *   [ ] **Refactoring `src/solver-wrapper.js` (Target 4)**
 *   [ ] **Refactoring `src/visualization.js` (Target 5)**

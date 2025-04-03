@@ -1,34 +1,80 @@
-import { createMockDataManager } from './test-setup.js'; // Remove createMockScheduler
+import {
+    createMockDataStore,
+    createMockPersistenceService,
+    createMockClassRepository,
+    createMockScheduleRepository,
+    createMockConfigManager // Import the missing mock creator
+} from './test-setup.js';
 import { Scheduler } from '../src/scheduler.js'; // Import the real Scheduler
 import { getFormattedDate } from '../src/date-utils.js'; // Import date util
 
 describe('Scheduler', () => {
-  let dataManager;
-  let scheduler;
+  let mockDataStore;
+  let mockPersistenceService;
+  let mockClassRepository;
+  let mockScheduleRepository;
+  let mockConfigManager; // Declare mockConfigManager
+  let mockDataManager; // Mock DataManager object
+  let scheduler; // The real Scheduler instance
 
   beforeEach(() => {
     jest.useFakeTimers();
-    dataManager = createMockDataManager();
-    // Instantiate the REAL Scheduler with the mock DataManager
-    scheduler = new Scheduler(dataManager);
+
+    // Create mock dependencies
+    mockDataStore = createMockDataStore();
+    mockPersistenceService = createMockPersistenceService();
+    mockClassRepository = createMockClassRepository(mockDataStore, mockPersistenceService);
+    // Pass mockClassRepository to mockScheduleRepository as Scheduler accesses it via scheduleRepository
+    mockScheduleRepository = createMockScheduleRepository(mockDataStore, mockPersistenceService, mockClassRepository);
+    // Create the mock ConfigManager
+    mockConfigManager = createMockConfigManager(mockDataStore, mockPersistenceService);
+
+    // Create a mock DataManager object that includes the configManager property
+    mockDataManager = {
+        // No longer need getConfig directly on DataManager mock
+        configManager: mockConfigManager // Attach the mock ConfigManager
+        // Add other DataManager properties/methods here ONLY if Scheduler starts depending on them directly
+    };
+
+    // Instantiate the REAL Scheduler with the required mocks
+    // Constructor expects: scheduleRepository, dataManager
+    scheduler = new Scheduler(mockScheduleRepository, mockDataManager);
+
+    // Provide mocks to tests via instance properties if needed, e.g., for setup
+    // (Using mockDataStore._state for direct state manipulation in tests below)
+    scheduler.mockDataStore = mockDataStore; // Attach for convenience in tests
   });
 
   describe('Class Placement Validation', () => {
     test('should validate basic placement', () => {
+      // Setup: Ensure required mocks return default valid states
+      mockClassRepository.getClasses.mockReturnValue([{ name: 'Math 101', conflicts: {} }]); // Mock class exists
+      mockScheduleRepository.isTeacherUnavailable.mockReturnValue(false); // Mock teacher available
+      mockDataStore._state.scheduleWeeks = { 0: { '2025-03-22': { 3: null } } }; // Mock slot is empty
+      // Ensure schedule repo mock returns the state
+      mockScheduleRepository.getSchedule.mockReturnValue(mockDataStore._state.scheduleWeeks[0]);
+
       const result = scheduler.isValidPlacement('Math 101', '2025-03-22', 3);
       expect(result.valid).toBe(true);
-      expect(result.reason).toBeUndefined(); // Adjust expectation based on actual return
+      expect(result.reason).toBeUndefined();
     });
 
     test('should detect class conflicts', async () => {
-      // Setup mock class data directly in the mock store
-      dataManager.dataStore._state.classes = [ // Access internal state for setup
+      // Setup mock class data via mockClassRepository or mockDataStore
+      mockDataStore._state.classes = [
         { name: 'Math 101', grade: '5', conflicts: { Monday: [1, 2], Tuesday: [3, 4] } },
-        // Add other classes if needed by other tests, or setup in beforeEach
       ];
+      // Ensure repository mock uses this data
+      mockClassRepository.getClasses.mockReturnValue(mockDataStore._state.classes);
+      mockScheduleRepository.isTeacherUnavailable.mockReturnValue(false);
+      mockDataStore._state.scheduleWeeks = { 0: { '2025-03-25': { 3: null } } }; // Slot is empty
+      // Ensure schedule repo mock returns the state
+      mockScheduleRepository.getSchedule.mockReturnValue(mockDataStore._state.scheduleWeeks[0]);
+
+
       // Tuesday period 3 is a conflict for Math 101
-      const result = scheduler.isValidPlacement('Math 101', '2025-03-25', 3);
-      // Adjust expected reason string to match actual output
+      const result = scheduler.isValidPlacement('Math 101', '2025-03-25', 3); // Tuesday is 2025-03-25
+
       expect(result).toEqual({
         valid: false,
         reason: `Conflict: Math 101 cannot be scheduled during this period.`
@@ -36,74 +82,91 @@ describe('Scheduler', () => {
     });
 
     test.skip('should detect teacher unavailability', () => { // SKIP: isValidPlacement intentionally ignores this
-      // Setup mock dataManager to report teacher unavailable
-      // Note: isValidPlacement doesn't check this, so test remains skipped
-      dataManager.isTeacherUnavailable.mockReturnValue(true);
+      // Setup mock ScheduleRepository to report teacher unavailable
+      mockScheduleRepository.isTeacherUnavailable.mockReturnValue(true);
+      mockClassRepository.getClasses.mockReturnValue([{ name: 'Math 101', conflicts: {} }]);
+      mockDataStore._state.scheduleWeeks = { 0: { '2025-03-22': { 3: null } } };
+      // Ensure schedule repo mock returns the state
+      mockScheduleRepository.getSchedule.mockReturnValue(mockDataStore._state.scheduleWeeks[0]);
 
       const result = scheduler.isValidPlacement('Math 101', '2025-03-22', 3);
       expect(result).toEqual({
         valid: false,
-        reason: 'Teacher is unavailable during this period'
+        reason: 'Teacher is unavailable during this period' // This reason comes from ScheduleRepository now
       });
     });
 
     test('should detect double booking', () => {
-      // Setup mock dataManager's schedule state
-      dataManager.dataStore._state.scheduleWeeks = {
-        0: { '2025-03-22': { 3: 'Science 102' } }
+      // Setup schedule state directly in the mock store
+      mockDataStore._state.scheduleWeeks = {
+        0: { '2025-03-22': { 3: 'Science 102' } } // Slot is booked
       };
+      mockClassRepository.getClasses.mockReturnValue([{ name: 'Math 101', conflicts: {} }]);
+      mockScheduleRepository.isTeacherUnavailable.mockReturnValue(false);
+      // Ensure schedule repo mock returns the state
+      mockScheduleRepository.getSchedule.mockReturnValue(mockDataStore._state.scheduleWeeks[0]);
 
       const result = scheduler.isValidPlacement('Math 101', '2025-03-22', 3);
-      // Adjust expected reason string to match actual output
+
       expect(result).toEqual({
         valid: false,
         reason: 'This time slot is already scheduled.'
       });
     });
-  });
+  }); // End Class Placement Validation describe
 
   describe('Constraint Checking', () => {
     test('should check consecutive class limits', () => {
-      // Setup schedule state in mock dataManager
-      dataManager.dataStore._state.scheduleWeeks = { 0: {
+      // Setup schedule state directly in mockDataStore
+      mockDataStore._state.scheduleWeeks = { 0: {
         '2025-03-22': {
           1: 'Math 101',
           2: 'Science 102',
           3: 'History 101', // This setup violates default maxConsecutiveClasses=2
-          // 4: 'English 101' // This would violate if maxConsecutiveClasses=3
+          4: null // Ensure slot 4 is empty for placement check
         }
       }};
       // Ensure config reflects the limit being tested (default is 2)
-      dataManager.dataStore._state.config.maxConsecutiveClasses = 2;
+      mockDataStore._state.config.maxConsecutiveClasses = 2;
+      // Ensure mocks for other checks pass
+      mockClassRepository.getClasses.mockReturnValue([{ name: 'Art 101', conflicts: {} }]);
+      mockScheduleRepository.isTeacherUnavailable.mockReturnValue(false);
+      // Ensure schedule repo mock returns the state
+      mockScheduleRepository.getSchedule.mockReturnValue(mockDataStore._state.scheduleWeeks[0]);
+      mockScheduleRepository.getCurrentWeekSchedule.mockReturnValue(mockDataStore._state.scheduleWeeks[0]); // For countWeeklyClasses
 
-      // The real scheduler's checkConstraints likely uses internal dataManager state,
-      // not a passed-in schedule object. Let's test isValidPlacement instead for this.
-      
       // Test placing a 3rd consecutive class when limit is 2
       const result = scheduler.isValidPlacement('Art 101', '2025-03-22', 4);
-      
+
       expect(result).toEqual({
         valid: false,
-        reason: expect.stringContaining('consecutive classes') // Check reason contains expected text
+        reason: expect.stringContaining('consecutive classes')
       });
     });
 
     test('should check daily class limits', () => {
-      // Setup schedule state in mock dataManager (4 classes scheduled)
-      dataManager.dataStore._state.scheduleWeeks = { 0: {
+      // Setup schedule state directly in mockDataStore (4 classes scheduled)
+      mockDataStore._state.scheduleWeeks = { 0: {
         '2025-03-22': {
           1: 'Class 1',
           3: 'Class 2',
           5: 'Class 3',
-          7: 'Class 4'
+          7: 'Class 4',
+          8: null // Ensure slot 8 is empty for placement check
         }
       }};
       // Ensure config reflects the limit being tested (default is 4)
-      dataManager.dataStore._state.config.maxClassesPerDay = 4;
+      mockDataStore._state.config.maxClassesPerDay = 4;
+       // Ensure mocks for other checks pass
+      mockClassRepository.getClasses.mockReturnValue([{ name: 'Class 5', conflicts: {} }]);
+      mockScheduleRepository.isTeacherUnavailable.mockReturnValue(false);
+      // Ensure schedule repo mock returns the state
+      mockScheduleRepository.getSchedule.mockReturnValue(mockDataStore._state.scheduleWeeks[0]);
+      mockScheduleRepository.getCurrentWeekSchedule.mockReturnValue(mockDataStore._state.scheduleWeeks[0]); // For countWeeklyClasses
 
       // Test placing a 5th class when limit is 4
       const result = scheduler.isValidPlacement('Class 5', '2025-03-22', 8);
-      
+
       expect(result).toEqual({
         valid: false,
         reason: expect.stringContaining('daily class limit')
@@ -111,7 +174,7 @@ describe('Scheduler', () => {
     });
 
     test('should check weekly class limits', () => {
-      // Setup schedule state in mock dataManager (16 classes scheduled)
+      // Setup schedule state directly in mockDataStore (16 classes scheduled)
       const schedule = {};
       const baseDate = new Date('2025-03-24'); // Monday
       for (let day = 0; day < 4; day++) { // Schedule 4 classes Mon-Thu
@@ -120,14 +183,22 @@ describe('Scheduler', () => {
         const dateStr = getFormattedDate(date); // Use imported function
         schedule[dateStr] = { 1: `C${day}1`, 3: `C${day}2`, 5: `C${day}3`, 7: `C${day}4` };
       }
-      dataManager.dataStore._state.scheduleWeeks = { 0: schedule };
+       // Add Friday structure but leave it empty for the placement check
+      const fridayStr = getFormattedDate(new Date('2025-03-28'));
+      schedule[fridayStr] = { 1: null };
+      mockDataStore._state.scheduleWeeks = { 0: schedule };
       // Ensure config reflects the limit being tested (default is 16)
-      dataManager.dataStore._state.config.maxClassesPerWeek = 16;
+      mockDataStore._state.config.maxClassesPerWeek = 16;
+      // Ensure mocks for other checks pass
+      mockClassRepository.getClasses.mockReturnValue([{ name: 'Class 17', conflicts: {} }]);
+      mockScheduleRepository.isTeacherUnavailable.mockReturnValue(false);
+      // Ensure schedule repo mock returns the state
+      mockScheduleRepository.getSchedule.mockReturnValue(mockDataStore._state.scheduleWeeks[0]);
+      mockScheduleRepository.getCurrentWeekSchedule.mockReturnValue(mockDataStore._state.scheduleWeeks[0]); // For countWeeklyClasses
 
       // Test placing the 17th class when limit is 16
-      const fridayStr = getFormattedDate(new Date('2025-03-28'));
       const result = scheduler.isValidPlacement('Class 17', fridayStr, 1);
-      
+
       expect(result).toEqual({
         valid: false,
         reason: expect.stringContaining('weekly limit')
@@ -135,7 +206,7 @@ describe('Scheduler', () => {
     });
 
     test('should check minimum weekly classes', () => {
-      // Setup schedule state (11 classes)
+      // Setup schedule state (11 classes) directly in mockDataStore
       const schedule = {};
       const baseDate = new Date('2025-03-24'); // Monday
       for (let day = 0; day < 3; day++) { // 4 classes Mon-Wed = 12
@@ -146,32 +217,41 @@ describe('Scheduler', () => {
       }
       // Remove one class to make it 11
       delete schedule[getFormattedDate(new Date('2025-03-26'))][7];
-      dataManager.dataStore._state.scheduleWeeks = { 0: schedule };
+      // Add Thursday structure but leave it empty for the placement check
+      const thursdayStr = getFormattedDate(new Date('2025-03-27'));
+      schedule[thursdayStr] = { 1: null };
+      mockDataStore._state.scheduleWeeks = { 0: schedule };
       // Ensure config reflects the limit being tested (default is 12)
-      dataManager.dataStore._state.config.minClassesPerWeek = 12;
+      mockDataStore._state.config.minClassesPerWeek = 12;
+      // Ensure mocks for other checks pass
+      mockClassRepository.getClasses.mockReturnValue([{ name: 'Class 12', conflicts: {} }]);
+      mockScheduleRepository.isTeacherUnavailable.mockReturnValue(false);
+      // Ensure schedule repo mock returns the state
+      mockScheduleRepository.getSchedule.mockReturnValue(mockDataStore._state.scheduleWeeks[0]);
+      mockScheduleRepository.getCurrentWeekSchedule.mockReturnValue(mockDataStore._state.scheduleWeeks[0]); // For countWeeklyClasses
 
       // This constraint is typically checked at the end, not during placement.
       // We'll skip testing this via isValidPlacement for now.
       // A dedicated checkConstraints test might be needed later if that method is used.
       // For now, let's assume isValidPlacement doesn't block based on minWeekly.
-      const thursdayStr = getFormattedDate(new Date('2025-03-27'));
       const result = scheduler.isValidPlacement('Class 12', thursdayStr, 1);
       expect(result.valid).toBe(true); // Expect placement to be allowed
     });
-  });
+  }); // End Constraint Checking describe
 
   describe('What-If Analysis', () => {
-    test('should simulate constraint changes', async () => {
-      // Setup initial schedule state (violates default maxConsecutive=2)
-      dataManager.dataStore._state.scheduleWeeks = { 0: {
+    // NOTE: These tests seem misplaced as the methods aren't on Scheduler. Left skipped.
+    test.skip('should simulate constraint changes', async () => {
+      // Setup initial schedule state directly in mockDataStore
+      mockDataStore._state.scheduleWeeks = { 0: {
         '2025-03-24': {
           1: 'Class 1',
           2: 'Class 2',
           3: 'Class 3'
         }
       }};
-      // Set current config (default maxConsecutive=2)
-      dataManager.dataStore._state.config = { ...dataManager.dataStore._state.config, maxConsecutiveClasses: 2 };
+      // Set current config directly in mockDataStore
+      mockDataStore._state.config = { ...mockDataStore._state.config, maxConsecutiveClasses: 2 };
 
       const newConstraints = {
         maxConsecutiveClasses: 3,
@@ -180,45 +260,43 @@ describe('Scheduler', () => {
         maxClassesPerWeek: 25
       };
 
-      // Simulate constraint change using the real scheduler method
-      // Note: simulateConstraintChanges is NOT part of the Scheduler class in src/scheduler.js
-      // This test seems to be testing a method from solver-wrapper.js or analytics.js
-      // Let's skip this test for now as it doesn't belong to Scheduler.
+      // Note: simulateConstraintChanges is NOT part of the Scheduler class
       // const simulation = await scheduler.simulateConstraintChanges(...);
-      expect(true).toBe(true); // Placeholder to make test pass when skipped
-
-      // expect(simulation).toEqual(...); // Skip assertion
+      expect(true).toBe(true);
+      // expect(simulation).toEqual(...);
     });
 
-    test('should validate constraint combinations', () => {
-      // This method also doesn't exist on the Scheduler class. Skip.
+    test.skip('should validate constraint combinations', () => {
+      // Note: validateConstraintCombination is NOT part of the Scheduler class
       // const result = scheduler.validateConstraintCombination(...);
-      expect(true).toBe(true); // Placeholder
-
-      // expect(result).toEqual(...); // Skip assertion
+      expect(true).toBe(true);
+      // expect(result).toEqual(...);
     });
-  });
+  }); // End What-If Analysis describe
 
   describe('Schedule Generation', () => {
     test('should suggest next class placement', () => {
-      // Setup unscheduled classes in mock dataManager
-      dataManager.getUnscheduledClasses.mockReturnValue([
+      // Setup unscheduled classes via mockScheduleRepository
+      const unscheduled = [
           { name: 'Few Conflicts', conflicts: { Monday: [1] } },
           { name: 'Many Conflicts', conflicts: { Monday: [1,2,3], Tuesday: [1,2,3] } },
-      ]);
-      
+      ];
+      // Assume suggestNextClass uses scheduleRepository.getUnscheduledClasses
+      mockScheduleRepository.getUnscheduledClasses.mockReturnValue(unscheduled);
+
       const suggestion = scheduler.suggestNextClass();
-      
+
       // Expect the class with more conflicts to be suggested
       expect(suggestion).toEqual({ name: 'Many Conflicts', conflicts: { Monday: [1,2,3], Tuesday: [1,2,3] } });
     });
 
-    test('should generate valid schedule suggestions', () => {
-      // This method doesn't exist on the Scheduler class. Skip.
+    test.skip('should generate valid schedule suggestions', () => {
+      // Note: generateScheduleSuggestions is NOT part of the Scheduler class
       // const suggestions = scheduler.generateScheduleSuggestions();
       // expect(suggestions).toEqual(...);
       // expect(scheduler.checkConstraints(suggestions.schedule).valid).toBe(true);
-      expect(true).toBe(true); // Placeholder
+      expect(true).toBe(true);
     });
-  });
-});
+  }); // End Schedule Generation describe
+
+}); // End top-level describe
