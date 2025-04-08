@@ -71,5 +71,45 @@
 
 *   [2025-04-02 20:28:59] Skipped tests in `app.characterization.test.js` (mocking issues) and `data-manager.test.js` (delegation tests for uncreated repos - SavedState) need to be addressed later.
 *   [2025-04-02 21:21:22] Drag-and-drop bug resolved. What-If UI/flow bugs resolved.
+
+*   [2025-04-03 21:36:42] Started Cycle 4: Extract `SavedStateRepository`. Created `src/repositories/saved-state-repository.js`.
+
+*   [2025-04-03 21:38:09] Moved saved state CRUD and load/save methods from `src/data.js` to `SavedStateRepository`.
+
+*   [2025-04-03 21:39:57] Updated `DataManager` constructor to instantiate `SavedStateRepository` and updated `_loadAllFromPersistence` to delegate loading.
+
+*   [2025-04-03 21:41:12] Updated mock implementation for `SavedStateRepository` in `test/test-setup.js`.
+
+*   [2025-04-03 21:56:03] Corrected internal call in `DataManager.loadSavedSchedule` to use repository.
+
+*   [2025-04-03 22:05:28] Encountered persistent issues applying diffs/replacements to `test/data-manager.test.js` to update delegation tests for Saved Class Collections, despite multiple attempts and re-reads. Test file size identified as a potential contributing factor and maintainability concern.
+
+*   [2025-04-03 22:07:07] **Current Focus:** Paused Cycle 4 (`SavedStateRepository` extraction). Prioritizing refactoring `test/data-manager.test.js` by splitting it into separate files per repository.
+
+*   [2025-04-03 22:09:10] Created test refactoring plan: `docs/test-refactoring-plan.md`.
+
+*   [2025-04-03 22:09:10] **Current Focus:** Implement the test refactoring plan by splitting `test/data-manager.test.js`.
+
+*   [2025-04-03 22:10:15] Created `test/repositories/class-repository.test.js`.
+
+*   [2025-04-03 22:10:24] Created `test/repositories/schedule-repository.test.js`.
+
+*   [2025-04-03 22:10:33] Created `test/repositories/config-manager.test.js`.
+
+*   [2025-04-03 22:10:50] Created `test/repositories/saved-state-repository.test.js`.
+
+*   [2025-04-03 22:11:19] Moved and adapted ClassRepository tests from `test/data-manager.test.js` to `test/repositories/class-repository.test.js`.
+
+*   [2025-04-03 22:11:19] Removed original Class Management test block from `test/data-manager.test.js` (failed initially, required retry).
+
+*   [2025-04-03 22:13:44] Encountered persistent `apply_diff` failures when attempting to adapt delegation tests in `test/data-manager.test.js` (specifically for Saved Class Collections), even after re-reading file content. Tool reported content was identical or similarity was too low.
+
+*   [2025-04-03 22:13:44] **Current Focus:** Paused test refactoring task at user request for session change. Next step upon resumption: Retry adapting delegation tests in `test/data-manager.test.js` (potentially using `write_to_file` if `apply_diff` continues to fail) or proceed to move ScheduleRepository tests.
+
+*   [2025-04-03 22:17:02] Identified runtime `TypeError` in `SaveLoadController` caused by calls to methods moved from `DataManager` to `SavedStateRepository`.
+
+*   [2025-04-03 22:18:19] Fixed calls in `SaveLoadController` (`loadSavedSchedule`, `showPreviewModal`, `handleSaveScheduleSubmit`, `deleteSavedSchedule`) to correctly use `dataManager.savedStateRepository`.
+
+*   [2025-04-03 22:18:19] **Current Focus:** Runtime error in `SaveLoadController` believed to be fixed. Requesting manual verification before resuming paused test refactoring task.
 *   [2025-04-02 21:53:40] 5 tests still failing after ConfigManager extraction and initial fixes (SyntaxError in ui-interactions, assertion in data-manager, 3 others in ui-interactions). Needs further debugging.
 *

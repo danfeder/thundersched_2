@@ -40,5 +40,19 @@ This file tracks the project's progress using a task list format.
 ## Next Steps
 
 *   [2025-04-02 21:53:40] Debug and fix the 5 failing tests for Cycle 3.
+
+*   [2025-04-03 22:07:07] Cycle 4: Extract `SavedStateRepository` - Code changes mostly complete, but tests blocked by need to refactor `test/data-manager.test.js`.
+
+*   [2025-04-03 22:07:07] **New Task:** Refactor `test/data-manager.test.js` by splitting into separate files per repository.
+
+    *   [2025-04-03 22:09:10] Plan documented in `docs/test-refactoring-plan.md`.
+
+    *   [2025-04-03 22:11:19] Created new repository test files.
+
+    *   [2025-04-03 22:11:19] Moved `ClassRepository` tests.
+
+    *   [2025-04-03 22:13:44] In progress: Adapting delegation tests in `test/data-manager.test.js` (Paused).
+
+*   [2025-04-03 22:18:19] Fixed runtime error in `SaveLoadController` by updating calls to use `SavedStateRepository`.
 *   [2025-04-02 21:21:22] After ConfigManager tests pass, proceed to Cycle 4: Extract `SavedStateRepository`.
 *

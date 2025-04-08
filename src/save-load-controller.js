@@ -93,8 +93,8 @@ class SaveLoadController {
             teacherData: JSON.parse(JSON.stringify(this.dataManager.teacherUnavailability))
         };
         
-        // Add to saved schedules
-        if (this.dataManager.addSavedSchedule(savedSchedule)) {
+        // Add to saved schedules using the repository
+        if (this.dataManager.savedStateRepository.addSavedSchedule(savedSchedule)) {
             // Hide modal (UIManager might handle this later)
             const modal = document.getElementById('save-schedule-modal');
             if (modal) modal.style.display = 'none';
@@ -239,7 +239,8 @@ class SaveLoadController {
     }
 
     showPreviewModal(scheduleId) {
-        const savedSchedule = this.dataManager.getSavedScheduleById(scheduleId);
+        // Use the repository to get the schedule
+        const savedSchedule = this.dataManager.savedStateRepository.getSavedScheduleById(scheduleId);
         if (!savedSchedule) {
             this.uiManager.showMessage('error', 'Could not find the saved schedule.');
             return;
@@ -328,8 +329,8 @@ class SaveLoadController {
     }
 
     loadSavedSchedule(id) {
-        // Find the schedule by ID
-        const savedSchedule = this.dataManager.getSavedScheduleById(id);
+        // Find the schedule by ID using the repository
+        const savedSchedule = this.dataManager.savedStateRepository.getSavedScheduleById(id);
         if (!savedSchedule) {
             this.uiManager.showMessage('error', 'Could not find the saved schedule.');
             return;
@@ -651,14 +652,14 @@ class SaveLoadController {
     }
 
     deleteSavedSchedule(id) {
-        // Find the schedule to get its name
-        const schedule = this.dataManager.getSavedScheduleById(id);
+        // Find the schedule to get its name using the repository
+        const schedule = this.dataManager.savedStateRepository.getSavedScheduleById(id);
         if (!schedule) return;
         
         const name = schedule.name;
         
-        // Delete the schedule
-        if (this.dataManager.deleteSavedSchedule(id)) {
+        // Delete the schedule using the repository
+        if (this.dataManager.savedStateRepository.deleteSavedSchedule(id)) {
             this.uiManager.showMessage('success', `Schedule "${name}" deleted.`);
         } else {
             this.uiManager.showMessage('error', `Failed to delete schedule "${name}". Please try again.`);

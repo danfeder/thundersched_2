@@ -64,5 +64,21 @@ This file records architectural and implementation decisions using a list format
 *   [2025-04-01 21:57:32] Ensure all necessary dependencies (including potentially both `scheduleRepository` and `dataManager` temporarily) are passed correctly during refactoring to avoid breaking existing functionality.
 *   [2025-04-01 21:57:32] Corrected argument order for `EventHandlerService` instantiation. Added missing `dataManager` and `classRepository` dependencies to `AnalyticsController` and `WhatIfController` constructors and instantiation calls in `AppInitializer`. Corrected internal dependency usage in `AnalyticsController`.
 *   [2025-04-01 22:01:07] Process Adjustment: After completing a significant refactoring milestone (e.g., extracting a component and updating callers), explicitly prompt the user for targeted manual testing of affected features before moving to the next step. This aims to catch regressions earlier.
+
+*   [2025-04-03 22:07:07] Decision: Pause Cycle 4 (`SavedStateRepository` extraction) to address the excessive size and complexity of `test/data-manager.test.js`.
+
+    *   Rationale: The large test file is causing tooling issues (diff/replace failures), hindering maintainability, and doesn't align with the refactored code structure (violates SRP for tests).
+
+    *   Implementation: Prioritize splitting `test/data-manager.test.js` into separate test files for each repository (`ClassRepository`, `ScheduleRepository`, `ConfigManager`, `SavedStateRepository`). Move relevant characterization and delegation tests to their respective new files.
+
+    *   [2025-04-03 22:09:10] Detailed plan for test splitting documented in `docs/test-refactoring-plan.md`.
+
+*   [2025-04-03 22:13:44] Observation: `apply_diff` and `search_and_replace` tools repeatedly failed to modify specific blocks in `test/data-manager.test.js` during delegation test adaptation, reporting identical content or low similarity despite `read_file` showing differences. Suggests potential issues with tool handling of large/complex files or rapid successive edits.
+
+*   [2025-04-03 22:13:44] Decision: Pausing test refactoring at user request for session change. Will resume adapting delegation tests in `test/data-manager.test.js` or move to next test block upon continuation.
+
+*   [2025-04-03 22:18:19] Debugging Runtime Error: Identified `TypeError` in `SaveLoadController` caused by calls to methods (`getSavedScheduleById`, `addSavedSchedule`, `deleteSavedSchedule`) that were moved from `DataManager` to `SavedStateRepository` during refactoring Cycle 4.
+
+    *   Fix: Updated relevant method calls within `SaveLoadController` to correctly reference `this.dataManager.savedStateRepository.methodName(...)`.
 *   [2025-04-01 22:01:07] To better align with the goal of maintaining functionality throughout incremental refactoring and avoid late discovery of breakages.
 *   [2025-04-01 22:01:07] Before starting the *next* refactoring cycle or major step, use `ask_followup_question` to suggest specific user testing actions based on the code just modified.

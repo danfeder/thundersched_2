@@ -6,6 +6,7 @@ import { DataStore } from './data-store.js';
 import { ClassRepository } from './repositories/class-repository.js';
 import { ScheduleRepository } from './repositories/schedule-repository.js';
 import { ConfigManager } from './repositories/config-manager.js'; // Import ConfigManager
+import { SavedStateRepository } from './repositories/saved-state-repository.js';
 
 export class DataManager {
     constructor(scheduler) {
@@ -20,8 +21,8 @@ export class DataManager {
 
         // Instantiate ConfigManager
         this.configManager = new ConfigManager(this.dataStore, this.persistenceService);
-        // TODO: Instantiate SavedStateRepository here
-        this.savedStateRepository = null; // Placeholder for SavedStateRepository instance
+        // Instantiate SavedStateRepository
+        this.savedStateRepository = new SavedStateRepository(this.dataStore, this.persistenceService);
 
         // Load initial state from persistence into the store
         this._loadAllFromPersistence();
@@ -36,10 +37,15 @@ export class DataManager {
     _loadAllFromPersistence() {
         // Delegate class loading to the repository
         this.classRepository.loadClassesFromLocalStorage();
-        // Keep other loads for now, assuming they will be delegated later
-        this.loadConfigFromLocalStorage();
-        this.loadSavedSchedulesFromLocalStorage();
-        this.loadSavedClassCollectionsFromLocalStorage();
+        // Delegate config loading
+        this.configManager.loadConfig();
+        // Delegate saved state loading
+        if (this.savedStateRepository) {
+            this.savedStateRepository.loadSavedSchedulesFromLocalStorage();
+            this.savedStateRepository.loadSavedClassCollectionsFromLocalStorage();
+        } else {
+             console.error("DataManager: SavedStateRepository not initialized during _loadAllFromPersistence call.");
+        }
         // Note: Teacher unavailability is not persisted
     }
 
@@ -55,52 +61,8 @@ export class DataManager {
         }
     }
 
-    loadSavedSchedulesFromLocalStorage() {
-        const storedSchedules = this.persistenceService.load('cooking-saved-schedules');
-        if (storedSchedules) {
-            this.dataStore.savedSchedules = storedSchedules; // Update store
-            // Migration logic remains here for now, but uses DataStore state
-            let migratedSchedules = false;
-            this.dataStore.savedSchedules.forEach(schedule => {
-                if (!schedule.startDate && schedule.scheduleData) {
-                    console.log(`Migrating schedule "${schedule.name}" to add startDate`);
-                    migratedSchedules = true;
-                    const firstWeekOffset = Object.keys(schedule.scheduleData).sort()[0];
-                    if (firstWeekOffset) {
-                        const firstWeekDates = Object.keys(schedule.scheduleData[firstWeekOffset]).sort();
-                        if (firstWeekDates.length > 0) {
-                            const [year, month, day] = firstWeekDates[0].split('-').map(num => parseInt(num, 10));
-                            const firstDate = new Date(Date.UTC(year, month - 1, day));
-                            const monday = getMondayOfWeek(firstDate);
-                            schedule.startDate = getFormattedDate(monday);
-                            console.log(`  Inferred startDate: ${schedule.startDate} for schedule "${schedule.name}"`);
-                        }
-                    }
-                }
-            });
-            if (migratedSchedules) {
-                console.log('Saving migrated schedules with added startDates');
-                this.saveSavedSchedulesToLocalStorage(); // Call the original save method
-            }
-            console.log(`Loaded ${this.dataStore.savedSchedules.length} saved schedules from storage`);
-        } else {
-            console.log('No saved schedules found in storage');
-            this.dataStore.savedSchedules = []; // Ensure store is empty array
-        }
-    }
-
-    // Removed _migrateSavedSchedules helper as it's part of loadSavedSchedulesFromLocalStorage again
-
-    loadSavedClassCollectionsFromLocalStorage() {
-        const storedCollections = this.persistenceService.load('cooking-saved-class-collections');
-        if (storedCollections) {
-            this.dataStore.savedClassCollections = storedCollections; // Update store
-            console.log(`Loaded ${this.dataStore.savedClassCollections.length} saved class collections from storage`);
-        } else {
-            console.log('No saved class collections found in storage');
-            this.dataStore.savedClassCollections = []; // Ensure store is empty array
-        }
-    }
+    // loadSavedSchedulesFromLocalStorage moved to SavedStateRepository
+    // loadSavedClassCollectionsFromLocalStorage moved to SavedStateRepository
 
     saveConfigToLocalStorage() {
         // Delegate to ConfigManager
@@ -112,13 +74,8 @@ export class DataManager {
         }
     }
 
-    saveSavedSchedulesToLocalStorage() {
-        return this.persistenceService.save('cooking-saved-schedules', this.dataStore.savedSchedules);
-    }
-
-    saveSavedClassCollectionsToLocalStorage() {
-       return this.persistenceService.save('cooking-saved-class-collections', this.dataStore.savedClassCollections);
-    }
+    // saveSavedSchedulesToLocalStorage moved to SavedStateRepository
+    // saveSavedClassCollectionsToLocalStorage moved to SavedStateRepository
 
     // --- Methods related to Schedule/Week/Teacher Unavailability moved to ScheduleRepository ---
     // setStartDate, initializeEmptyWeek, getCurrentWeekSchedule, getCurrentWeekDates,
@@ -158,43 +115,13 @@ export class DataManager {
         }
     }
     
-    // --- Saved Schedules Management (using DataStore) ---
-    addSavedSchedule(schedule) {
-        if (!schedule.lastModified) {
-            schedule.lastModified = schedule.createdAt;
-        }
-        // Update store state before saving
-        const newSavedSchedules = [...this.dataStore.savedSchedules, schedule];
-        this.dataStore.savedSchedules = newSavedSchedules; 
-        return this.saveSavedSchedulesToLocalStorage();
-    }
-    
-    updateSavedSchedule(id, updates) {
-        const index = this.dataStore.savedSchedules.findIndex(s => s.id === id);
-        if (index !== -1) {
-            updates.lastModified = new Date().toISOString();
-            // Update store state before saving
-            const newSavedSchedules = [...this.dataStore.savedSchedules];
-            newSavedSchedules[index] = {...newSavedSchedules[index], ...updates};
-            this.dataStore.savedSchedules = newSavedSchedules; 
-            return this.saveSavedSchedulesToLocalStorage();
-        }
-        return false;
-    }
-    
-    deleteSavedSchedule(id) {
-        const initialLength = this.dataStore.savedSchedules.length;
-        const newSavedSchedules = this.dataStore.savedSchedules.filter(s => s.id !== id);
-        if (newSavedSchedules.length === initialLength) return false; // Not found
+    // --- Saved Schedules Management (moved to SavedStateRepository) ---
+    // addSavedSchedule moved
+    // updateSavedSchedule moved
+    // deleteSavedSchedule moved
+    // getSavedScheduleById moved
 
-        this.dataStore.savedSchedules = newSavedSchedules; // Update store
-        return this.saveSavedSchedulesToLocalStorage();
-    }
-    
-    getSavedScheduleById(id) {
-        return this.dataStore.savedSchedules.find(s => s.id === id);
-    }
-
+    // TODO: Refactor - Move orchestration logic to SaveLoadController and use SavedStateRepository
     // Re-added saveSchedule - delegates to SavedStateRepository
     saveSchedule(name, notes) {
         if (!this.scheduleRepository || !this.savedStateRepository) {
@@ -217,7 +144,8 @@ export class DataManager {
                 scheduleData: scheduleData,
                 teacherUnavailability: teacherUnavailability
             };
-            return this.savedStateRepository.saveSchedule(scheduleToSave); // Delegate save
+            // Delegate the actual saving to the repository's add method
+            return this.savedStateRepository.addSavedSchedule(scheduleToSave);
         } catch (error) {
             this.showErrorMessage(`Error saving schedule: ${error.message}`);
             return false;
@@ -231,8 +159,8 @@ export class DataManager {
         //     console.error("Repositories not initialized for loadSavedSchedule");
         //     return false;
         // }
-        // Use getSavedScheduleById directly for now as repo is null
-        const savedSchedule = this.getSavedScheduleById(name);
+        // Use getSavedScheduleById from the repository
+        const savedSchedule = this.savedStateRepository.getSavedScheduleById(name);
         if (savedSchedule) {
             // Directly update DataStore with loaded data (temporary fix until ScheduleRepository is implemented)
             this.dataStore.scheduleWeeks = savedSchedule.scheduleData || {};
@@ -251,41 +179,11 @@ export class DataManager {
         }
     }
     
-    // --- Saved Class Collections Management (Delegated) ---
-     addSavedClassCollection(collection) {
-        if (!collection.lastModified) {
-            collection.lastModified = collection.createdAt || new Date().toISOString(); // Add createdAt if missing
-        }
-        const newCollections = [...this.dataStore.savedClassCollections, collection];
-        this.dataStore.savedClassCollections = newCollections; // Update store
-        return this.saveSavedClassCollectionsToLocalStorage(); // Use original save method
-    }
-    
-    
-    updateSavedClassCollection(id, updates) {
-        const index = this.dataStore.savedClassCollections.findIndex(c => c.id === id);
-        if (index !== -1) {
-            updates.lastModified = new Date().toISOString();
-            const newCollections = [...this.dataStore.savedClassCollections];
-            newCollections[index] = {...newCollections[index], ...updates};
-            this.dataStore.savedClassCollections = newCollections; // Update store
-            return this.saveSavedClassCollectionsToLocalStorage();
-        }
-        return false;
-    }
-    
-    deleteSavedClassCollection(id) {
-         const initialLength = this.dataStore.savedClassCollections.length;
-         const newCollections = this.dataStore.savedClassCollections.filter(c => c.id !== id);
-         if (newCollections.length === initialLength) return false; // Not found
-
-        this.dataStore.savedClassCollections = newCollections; // Update store
-        return this.saveSavedClassCollectionsToLocalStorage();
-    }
-    
-    getSavedClassCollectionById(id) {
-        return this.dataStore.savedClassCollections.find(c => c.id === id);
-    }
+    // --- Saved Class Collections Management (moved to SavedStateRepository) ---
+    // addSavedClassCollection moved
+    // updateSavedClassCollection moved
+    // deleteSavedClassCollection moved
+    // getSavedClassCollectionById moved
 
     // --- Error Handling ---
     showErrorMessage(message) {

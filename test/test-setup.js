@@ -194,24 +194,98 @@ export const createMockConfigManager = (mockDataStore, mockPersistenceService) =
 // Removed duplicated/erroneous lines from previous attempt
 
 // --- Mock SavedStateRepository ---
-export const createMockSavedStateRepository = (mockDataStore, mockPersistenceService) => ({
-    dataStore: mockDataStore,
-    persistenceService: mockPersistenceService,
-    saveSchedule: jest.fn().mockReturnValue(true), // Assume success
-    getSavedScheduleByName: jest.fn().mockReturnValue(undefined), // Default to not found
-    addSavedClassCollection: jest.fn().mockReturnValue(true), // Assume success
-    getSavedClassCollectionById: jest.fn().mockReturnValue(undefined), // Default to not found
-    updateSavedClassCollection: jest.fn().mockReturnValue(false), // Default to not found/fail
-    deleteSavedClassCollection: jest.fn().mockReturnValue(false), // Default to not found/fail
-    loadCollections: jest.fn(() => { // Mock for loading collections
-        const data = mockPersistenceService.load('cooking-saved-class-collections');
-        if (data) mockDataStore.savedClassCollections = data;
-    }),
-    saveCollections: jest.fn(() => { // Mock for saving collections
-        mockPersistenceService.save('cooking-saved-class-collections', mockDataStore.savedClassCollections);
-    }),
-    // Add other methods like loadSchedules, saveSchedules if needed by DataManager facade
-});
+export const createMockSavedStateRepository = (mockDataStore, mockPersistenceService) => {
+    const repo = {
+        dataStore: mockDataStore,
+        persistenceService: mockPersistenceService,
+        // Schedule methods
+        loadSavedSchedulesFromLocalStorage: jest.fn(() => {
+            const data = mockPersistenceService.load('cooking-saved-schedules');
+            if (data) {
+                // Simulate migration logic for the mock
+                let migrated = false;
+                data.forEach(schedule => {
+                    if (!schedule.startDate && schedule.scheduleData) {
+                         const firstWeekOffset = Object.keys(schedule.scheduleData).sort()[0];
+                         if (firstWeekOffset) {
+                             const firstWeekDates = Object.keys(schedule.scheduleData[firstWeekOffset]).sort();
+                             if (firstWeekDates.length > 0) {
+                                 // Use real date utils for consistency in mock
+                                 const [year, month, day] = firstWeekDates[0].split('-').map(num => parseInt(num, 10));
+                                 const firstDate = new Date(Date.UTC(year, month - 1, day));
+                                 const monday = DateUtils.getMondayOfWeek(firstDate); // Use imported DateUtils
+                                 schedule.startDate = DateUtils.getFormattedDate(monday); // Use imported DateUtils
+                                 migrated = true;
+                             }
+                         }
+                    }
+                });
+                mockDataStore.savedSchedules = data; // Update store
+                if (migrated) {
+                    repo.saveSavedSchedulesToLocalStorage(); // Call mock save if migration happened
+                }
+            } else {
+                 mockDataStore.savedSchedules = [];
+            }
+        }),
+        saveSavedSchedulesToLocalStorage: jest.fn(() => {
+            return mockPersistenceService.save('cooking-saved-schedules', mockDataStore.savedSchedules);
+        }),
+        addSavedSchedule: jest.fn((schedule) => {
+             mockDataStore.savedSchedules = [...mockDataStore.savedSchedules, schedule];
+             return repo.saveSavedSchedulesToLocalStorage(); // Call mock save
+        }),
+        updateSavedSchedule: jest.fn((id, updates) => {
+             const index = mockDataStore.savedSchedules.findIndex(s => s.id === id);
+             if (index === -1) return false;
+             const newSchedules = [...mockDataStore.savedSchedules];
+             newSchedules[index] = { ...newSchedules[index], ...updates, lastModified: 'mock-date' };
+             mockDataStore.savedSchedules = newSchedules;
+             return repo.saveSavedSchedulesToLocalStorage(); // Call mock save
+        }),
+        deleteSavedSchedule: jest.fn((id) => {
+              const initialLength = mockDataStore.savedSchedules.length;
+              const newSchedules = mockDataStore.savedSchedules.filter(s => s.id !== id);
+              if (newSchedules.length === initialLength) return false;
+              mockDataStore.savedSchedules = newSchedules;
+              return repo.saveSavedSchedulesToLocalStorage(); // Call mock save
+        }),
+        getSavedScheduleById: jest.fn((id) => mockDataStore.savedSchedules.find(s => s.id === id)),
+        // Class Collection methods
+        loadSavedClassCollectionsFromLocalStorage: jest.fn(() => {
+            const data = mockPersistenceService.load('cooking-saved-class-collections');
+            if (data) {
+                 mockDataStore.savedClassCollections = data;
+            } else {
+                 mockDataStore.savedClassCollections = [];
+            }
+        }),
+        saveSavedClassCollectionsToLocalStorage: jest.fn(() => {
+            return mockPersistenceService.save('cooking-saved-class-collections', mockDataStore.savedClassCollections);
+        }),
+        addSavedClassCollection: jest.fn((collection) => {
+             mockDataStore.savedClassCollections = [...mockDataStore.savedClassCollections, collection];
+             return repo.saveSavedClassCollectionsToLocalStorage(); // Call mock save
+        }),
+        updateSavedClassCollection: jest.fn((id, updates) => {
+             const index = mockDataStore.savedClassCollections.findIndex(c => c.id === id);
+             if (index === -1) return false;
+             const newCollections = [...mockDataStore.savedClassCollections];
+             newCollections[index] = { ...newCollections[index], ...updates, lastModified: 'mock-date' };
+             mockDataStore.savedClassCollections = newCollections;
+             return repo.saveSavedClassCollectionsToLocalStorage(); // Call mock save
+        }),
+        deleteSavedClassCollection: jest.fn((id) => {
+              const initialLength = mockDataStore.savedClassCollections.length;
+              const newCollections = mockDataStore.savedClassCollections.filter(c => c.id !== id);
+              if (newCollections.length === initialLength) return false;
+              mockDataStore.savedClassCollections = newCollections;
+              return repo.saveSavedClassCollectionsToLocalStorage(); // Call mock save
+        }),
+        getSavedClassCollectionById: jest.fn((id) => mockDataStore.savedClassCollections.find(c => c.id === id)),
+    };
+    return repo;
+};
 
 
 // --- Mock DataManager Facade ---
